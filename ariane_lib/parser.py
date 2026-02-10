@@ -186,7 +186,7 @@ class ArianeParser(metaclass=KeyMapMeta):
         for shot in self.shots:
             try:
                 section_map[shot.section].add_shot(shot)
-            except KeyError:  # noqa: PERF203
+            except KeyError:
                 section_map[shot.section] = SurveySection(shot=shot)
 
         return list(section_map.values())
