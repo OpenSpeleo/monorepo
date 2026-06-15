@@ -75,10 +75,14 @@ test-ui:
 	fi
 
 # Run WASM UI tests in CI after the matching wasm-bindgen-cli is installed.
+# When GECKODRIVER points at a geckodriver binary (set by CI), pass it
+# explicitly so wasm-pack does not depend on PATH discovery, which is
+# unreliable under bash on Windows.
+GECKODRIVER_ARG := $(if $(GECKODRIVER),--geckodriver "$(GECKODRIVER)",)
 test-ui-ci:
 	@command -v wasm-pack >/dev/null 2>&1 || { echo "wasm-pack not found"; exit 127; }
 	@command -v wasm-bindgen >/dev/null 2>&1 || { echo "wasm-bindgen not found"; exit 127; }
-	cd app/src && wasm-pack test --headless --firefox --mode no-install
+	cd app/src && wasm-pack test --headless --firefox --mode no-install $(GECKODRIVER_ARG)
 
 # ============================================================================ #
 # BUILD COMMANDS

@@ -125,6 +125,27 @@ jobs:
 
       - name: Install geckodriver
         uses: browser-actions/setup-geckodriver@latest
+        with:
+          # Authenticate the geckodriver release lookup. Without a token the
+          # action makes unauthenticated GitHub API calls and intermittently
+          # fails with "API rate limit exceeded" (see macOS CI failures).
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      # `setup-geckodriver` only puts geckodriver on PATH for the *native*
+      # shell, and `wasm-pack ... --mode no-install` running under bash on
+      # Windows does not see it ("could not find a global geckodriver on the
+      # $PATH"). Resolve the absolute binary path in the native shell and hand
+      # it to wasm-pack explicitly via GECKODRIVER.
+      - name: Resolve geckodriver path (Unix)
+        if: matrix.platform != 'windows-latest'
+        run: echo "GECKODRIVER=$(command -v geckodriver)" >> "$GITHUB_ENV"
+        shell: bash
+
+      - name: Resolve geckodriver path (Windows)
+        if: matrix.platform == 'windows-latest'
+        run: |
+          "GECKODRIVER=$((Get-Command geckodriver).Source)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+        shell: pwsh
 
       # Cache Rust dependencies and build artifacts
       - name: Rust cache
