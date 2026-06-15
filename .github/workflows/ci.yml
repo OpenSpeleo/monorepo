@@ -17,6 +17,11 @@ jobs:
   lint:
     permissions:
       contents: read
+    env:
+      # Authenticate cargo-binstall's GitHub API release lookups. Without a
+      # token these run unauthenticated and intermittently return HTTP 403
+      # ("rate limit exceeded") on shared CI egress IPs.
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -71,6 +76,11 @@ jobs:
   test:
     permissions:
       contents: read
+    env:
+      # Authenticate cargo-binstall's GitHub API release lookups (wasm-pack,
+      # wasm-bindgen-cli). Without a token these hit HTTP 403 rate limits on
+      # shared CI egress IPs, then fall back to slow from-source builds.
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     strategy:
       fail-fast: false
       matrix:
