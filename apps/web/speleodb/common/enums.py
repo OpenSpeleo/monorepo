@@ -1,0 +1,226 @@
+# -*- coding: utf-8 -*-
+
+from __future__ import annotations
+
+import random
+import re
+from typing import TYPE_CHECKING
+from typing import Self
+
+from django.db import models
+
+from speleodb.utils.decorators import classproperty
+
+if TYPE_CHECKING:
+    from typing import Self
+
+    from django_stubs_ext import StrOrPromise
+
+
+class BaseIntegerChoices(models.IntegerChoices):
+    @classmethod
+    def from_str(cls, value: str) -> Self:
+        return cls._member_map_[value]  # type: ignore[return-value]
+
+    @classmethod
+    def from_value(cls, value: int) -> Self:
+        return cls._value2member_map_[value]  # type: ignore[return-value]
+
+    @classproperty
+    def members(cls) -> list[Self]:  # noqa: N805
+        return list(cls._member_map_.values())  # type: ignore[attr-defined]
+
+
+class UserAction(models.TextChoices):
+    LOGIN = "login", "Login"
+    LOGOUT = "logout", "Logout"
+    SIGNUP = "signup", "Signup"
+    PASSWORD_CHANGED = "password change", "Password Changed"
+    PASSWORD_RESET = "password reset", "Password Reset"
+    TOKEN_REFRESH = "token refresh", "Token Refresh"
+
+
+class UserApplication(models.TextChoices):
+    ANDROID_APP = "android", "Android"
+    ARIANE_APP = "ariane", "Ariane"
+    COMPASS_APP = "compass", "Compass"
+    IOS_APP = "iOS", "iOS"
+    UNITTEST = "unittest", "Unittest"
+    WEBSITE = "website", "Website"
+    # Fallback
+    UNKNOWN = "unknown", "Unknown"
+
+
+class InstallStatus(models.TextChoices):
+    INSTALLED = "installed", "Installed"
+    RETRIEVED = "retrieved", "Retrieved"
+    LOST = "lost", "Lost"
+    ABANDONED = "abandoned", "Abandoned"
+
+
+class OperationalStatus(models.TextChoices):
+    FUNCTIONAL = "functional", "Functional"
+    NEEDS_SERVICE = "needs_service", "Needs Service"
+    BROKEN = "broken", "Broken"
+    LOST = "lost", "Lost"
+    ABANDONED = "abandoned", "Abandoned"
+
+
+class PermissionLevel(BaseIntegerChoices):
+    WEB_VIEWER = (0, "WEB_VIEWER")
+    READ_ONLY = (1, "READ_ONLY")
+    READ_AND_WRITE = (2, "READ_AND_WRITE")
+    ADMIN = (3, "ADMIN")
+
+    @classproperty
+    def choices_no_admin(cls) -> list[tuple[int, StrOrPromise]]:  # noqa: N805
+        return [
+            member
+            for member in PermissionLevel.choices
+            if member[0] < PermissionLevel.ADMIN
+        ]
+
+    @classproperty
+    def choices_no_webviewer(cls) -> list[tuple[int, StrOrPromise]]:  # noqa: N805
+        return [
+            member
+            for member in PermissionLevel.choices
+            if member[0] > PermissionLevel.WEB_VIEWER
+        ]
+
+    @classproperty
+    def values_no_admin(cls) -> list[int]:  # noqa: N805
+        return [
+            value for value in PermissionLevel.values if value < PermissionLevel.ADMIN
+        ]
+
+    @classproperty
+    def members_no_admin(cls) -> list[PermissionLevel]:  # noqa: N805
+        return [  # type: ignore[var-annotated]
+            member
+            for member in PermissionLevel.members  # type: ignore[arg-type]
+            if member.value < PermissionLevel.ADMIN.value
+        ]
+
+    @classproperty
+    def members_no_webviewer(cls) -> list[PermissionLevel]:  # noqa: N805
+        return [  # type: ignore[var-annotated]
+            member
+            for member in PermissionLevel.members  # type: ignore[arg-type]
+            if member.value > PermissionLevel.WEB_VIEWER.value
+        ]
+
+
+class ProjectType(models.TextChoices):
+    ARIANE = "ariane", "ARIANE"
+    COMPASS = "compass", "COMPASS"
+    STICKMAPS = "stickmaps", "STICKMAPS"
+    THERION = "therion", "THERION"
+    WALLS = "walls", "WALLS"
+    OTHER = "other", "OTHER"
+
+
+class ProjectVisibility(BaseIntegerChoices):
+    PRIVATE = (0, "PRIVATE")
+    PUBLIC = (1, "PUBLIC")
+
+
+class StationResourceType(models.TextChoices):
+    PHOTO = "photo", "Photo"
+    VIDEO = "video", "Video"
+    NOTE = "note", "Note"
+    DOCUMENT = "document", "Document"
+
+    @classmethod
+    def from_str(cls, value: str) -> Self:
+        return cls._member_map_[value.upper()]  # type: ignore[return-value]
+
+
+class SubSurfaceStationType(models.TextChoices):
+    ARTIFACT = "artifact", "Artifact"
+    BIOLOGY = "biology", "Biology"
+    BONE = "bone", "Bone"
+    GEOLOGY = "geology", "Geology"
+    SENSOR = "sensor", "Sensor"
+
+
+class SurveyTeamMembershipRole(BaseIntegerChoices):
+    MEMBER = (0, "MEMBER")
+    LEADER = (1, "LEADER")
+
+
+class UnitSystem(models.TextChoices):
+    METRIC = "metric", "Metric"
+    IMPERIAL = "imperial", "Imperial"
+
+
+# =============================================================================
+# SpeleoDB Platform Plugin Enums
+# =============================================================================
+
+
+class SurveyPlatformEnum(BaseIntegerChoices):
+    WEB = (0, "WEB")
+    ARIANE = (1, "ARIANE")
+
+
+class OperatingSystemEnum(BaseIntegerChoices):
+    ANY = (0, "ANY")
+
+    MACOS = (10, "MACOS")
+    MACOS_INTEL = (11, "MACOS_INTEL")
+    MACOS_ARM = (12, "MACOS_ARM")
+
+    WINDOWS = (20, "WINDOWS")
+    WINDOWS_32 = (21, "WINDOWS_32")
+    WINDOWS_64 = (22, "WINDOWS_64")
+
+    LINUX = (30, "LINUX")
+    LINUX_32 = (31, "LINUX_32")
+    LINUX_64 = (32, "LINUX_64")
+
+
+# =============================================================================
+# Color Palette
+# =============================================================================
+
+_HEX_COLOR_RE = re.compile(r"#[0-9a-fA-F]{6}")
+
+
+class ColorPalette:
+    """20 perceptually distinct colors used as defaults for projects and GPS tracks."""
+
+    COLORS: tuple[str, ...] = (
+        "#e41a1c",
+        "#377eb8",
+        "#4daf4a",
+        "#984ea3",
+        "#ff7f00",
+        "#ffff33",
+        "#a65628",
+        "#f781bf",
+        "#999999",
+        "#66c2a5",
+        "#fc8d62",
+        "#8da0cb",
+        "#e78ac3",
+        "#a6d854",
+        "#ffd92f",
+        "#e5c494",
+        "#b3b3b3",
+        "#1b9e77",
+        "#d95f02",
+        "#7570b3",
+    )
+
+    @classmethod
+    def random_color(cls) -> str:
+        """Return a random color from the palette (for model defaults)."""
+        return random.choice(cls.COLORS)
+
+    @staticmethod
+    def is_valid_hex(value: object) -> bool:
+        """Check whether *value* is a valid ``#RRGGBB`` hex colour."""
+        if not isinstance(value, str):
+            return False
+        return bool(_HEX_COLOR_RE.fullmatch(value))

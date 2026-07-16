@@ -1,0 +1,94 @@
+// For format details, see https://containers.dev/implementors/json_reference/
+{
+    "name": "speleodb_dev",
+    "dockerComposeFile": [
+        "../local.yml"
+    ],
+    "init": true,
+    // Tells devcontainer.json supporting services / tools whether they should run
+    // /bin/sh -c "while sleep 1000; do :; done" when starting the container instead of the container’s default command
+    "overrideCommand": false,
+    "service": "django",
+    // "remoteEnv": {"PATH": "/home/dev-user/.local/bin:${containerEnv:PATH}"},
+    "remoteUser": "dev-user",
+    "workspaceFolder": "/app",
+    // VS Code tunnel only: Docker still uses host networking and publishes no
+    // container port. This makes port 8000 appear automatically in Ports.
+    "forwardPorts": [
+        8000
+    ],
+    "portsAttributes": {
+        "8000": {
+            "label": "SpeleoDB Django",
+            "onAutoForward": "notify"
+        }
+    },
+    // Set *default* container specific settings.json values on container create.
+    "customizations": {
+        "vscode": {
+            "settings": {
+                "editor.formatOnSave": true,
+                "[python]": {
+                    "analysis.autoImportCompletions": true,
+                    // https://github.com/microsoft/pylance-release/wiki/Pylance-Configuration-Tips
+                    // "analysis.languageServerMode": "light",
+                    // "analysis.indexing": false,
+                    // "analysis.typeCheckingMode": "basic",
+                    "defaultInterpreterPath": "/usr/local/bin/python",
+                    "editor.codeActionsOnSave": {
+                        "source.organizeImports": "always"
+                    },
+                    "editor.defaultFormatter": "charliermarsh.ruff",
+                    // "languageServer": "Pylance",
+                    "linting.enabled": true,
+                    "linting.flake8Enabled": true,
+                    "linting.mypyEnabled": true,
+                    "linting.mypyPath": "/usr/local/bin/mypy",
+                    "linting.mypyArgs": [
+                        "--config-file",
+                        "/app/pyproject.toml"
+                    ],
+                    "linting.pylintEnabled": true
+                },
+                "[html]": {
+                    "editor.formatOnSave": false,
+                    "editor.defaultFormatter": null
+                },
+            },
+            // https://code.visualstudio.com/docs/remote/devcontainerjson-reference#_vs-code-specific-properties
+            // Add the IDs of extensions you want installed when the container is created.
+            "extensions": [
+                // python
+                "ms-python.python",
+                // Language Server
+                "meta.pyrefly",
+                // Type Checker
+                // "ms-python.mypy-type-checker",  // Very slow, only use when debugging type issues
+                // Linting
+                "charliermarsh.ruff",
+                // HTML Linting
+                // "monosans.djlint",
+                // TOML
+                "tamasfe.even-better-toml",
+                // YAML
+                "redhat.vscode-yaml",
+                // Markdown
+                "davidanson.vscode-markdownlint",
+                // Makefiles
+                "ms-vscode.makefile-tools",
+                // Docker
+                "ms-azuretools.vscode-docker",
+                // Env
+                "IronGeek.vscode-env",
+                // EML Viewer
+                "joel-harkes.emlviewer"
+            ]
+        }
+    },
+    // Uncomment the next line if you want start specific services in your Docker Compose config.
+    // "runServices": [],
+    // Uncomment the next line if you want to keep your containers running after VS Code shuts down.
+    // "shutdownAction": "none",
+    // Uncomment the next line to run commands after the container is created.
+    "postCreateCommand": "cat .devcontainer/bashrc.override.sh >> ~/.bashrc"
+}

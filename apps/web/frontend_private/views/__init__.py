@@ -1,0 +1,143 @@
+from frontend_private.views.cylinder_fleets import CylinderFleetDangerZoneView
+from frontend_private.views.cylinder_fleets import CylinderFleetDetailsView
+from frontend_private.views.cylinder_fleets import CylinderFleetHistoryView
+from frontend_private.views.cylinder_fleets import CylinderFleetListingView
+from frontend_private.views.cylinder_fleets import CylinderFleetNeedsHydroView
+from frontend_private.views.cylinder_fleets import CylinderFleetNeedsVisualView
+from frontend_private.views.cylinder_fleets import CylinderFleetUserPermissionsView
+from frontend_private.views.cylinder_fleets import CylinderFleetWatchlistView
+from frontend_private.views.cylinder_fleets import NewCylinderFleetView
+from frontend_private.views.experiments import ExperimentDangerZoneView
+from frontend_private.views.experiments import ExperimentDataViewerView
+from frontend_private.views.experiments import ExperimentDetailsView
+from frontend_private.views.experiments import ExperimentGISView
+from frontend_private.views.experiments import ExperimentListingView
+from frontend_private.views.experiments import ExperimentUserPermissionsView
+from frontend_private.views.experiments import NewExperimentView
+from frontend_private.views.gis_views import GISViewDangerZoneView
+from frontend_private.views.gis_views import GISViewDetailsView
+from frontend_private.views.gis_views import GISViewGISIntegrationView
+from frontend_private.views.gis_views import GISViewListingView
+from frontend_private.views.gis_views import NewGISViewView
+from frontend_private.views.gps_tracks import GPSTrackListView
+from frontend_private.views.landmark_collections import LandmarkCollectionDangerZoneView
+from frontend_private.views.landmark_collections import LandmarkCollectionDetailsView
+from frontend_private.views.landmark_collections import LandmarkCollectionGISView
+from frontend_private.views.landmark_collections import LandmarkCollectionListingView
+from frontend_private.views.landmark_collections import (
+    LandmarkCollectionUserPermissionsView,
+)
+from frontend_private.views.landmark_collections import NewLandmarkCollectionView
+from frontend_private.views.map import MapViewerView
+from frontend_private.views.project import NewProjectView
+from frontend_private.views.project import ProjectDangerZoneView
+from frontend_private.views.project import ProjectDetailsView
+from frontend_private.views.project import ProjectGitExplorerView
+from frontend_private.views.project import ProjectGitInstructionsView
+from frontend_private.views.project import ProjectListingView
+from frontend_private.views.project import ProjectMutexesView
+from frontend_private.views.project import ProjectRevisionHistoryView
+from frontend_private.views.project import ProjectTeamPermissionsView
+from frontend_private.views.project import ProjectUploadView
+from frontend_private.views.project import ProjectUserPermissionsView
+from frontend_private.views.sensor_fleets import NewSensorFleetView
+from frontend_private.views.sensor_fleets import SensorFleetDangerZoneView
+from frontend_private.views.sensor_fleets import SensorFleetDetailsView
+from frontend_private.views.sensor_fleets import SensorFleetHistoryView
+from frontend_private.views.sensor_fleets import SensorFleetListingView
+from frontend_private.views.sensor_fleets import SensorFleetUserPermissionsView
+from frontend_private.views.sensor_fleets import SensorFleetWatchlistView
+from frontend_private.views.surface_networks import NewSurfaceNetworkView
+from frontend_private.views.surface_networks import SurfaceNetworkDangerZoneView
+from frontend_private.views.surface_networks import SurfaceNetworkDetailsView
+from frontend_private.views.surface_networks import SurfaceNetworkGISView
+from frontend_private.views.surface_networks import SurfaceNetworkListingView
+from frontend_private.views.surface_networks import SurfaceNetworkUserPermissionsView
+from frontend_private.views.team import NewTeamView
+from frontend_private.views.team import TeamDangerZoneView
+from frontend_private.views.team import TeamDetailsView
+from frontend_private.views.team import TeamListingView
+from frontend_private.views.team import TeamMembershipsView
+from frontend_private.views.tools import ToolDMP2Json
+from frontend_private.views.tools import ToolDMPDoctor
+from frontend_private.views.tools import ToolXLSToArianeDMP
+from frontend_private.views.tools import ToolXLSToCompass
+from frontend_private.views.user import AuthTokenView
+from frontend_private.views.user import DashboardView
+from frontend_private.views.user import FeedbackView
+from frontend_private.views.user import PassWordView
+from frontend_private.views.user import PreferencesView
+from frontend_private.views.user import ProfileView
+from frontend_private.views.user import StationTagsView
+
+__all__ = [
+    "AuthTokenView",
+    "CylinderFleetDangerZoneView",
+    "CylinderFleetDetailsView",
+    "CylinderFleetHistoryView",
+    "CylinderFleetListingView",
+    "CylinderFleetNeedsHydroView",
+    "CylinderFleetNeedsVisualView",
+    "CylinderFleetUserPermissionsView",
+    "CylinderFleetWatchlistView",
+    "DashboardView",
+    "ExperimentDangerZoneView",
+    "ExperimentDataViewerView",
+    "ExperimentDetailsView",
+    "ExperimentGISView",
+    "ExperimentListingView",
+    "ExperimentUserPermissionsView",
+    "FeedbackView",
+    "GISViewDangerZoneView",
+    "GISViewDetailsView",
+    "GISViewGISIntegrationView",
+    "GISViewListingView",
+    "GPSTrackListView",
+    "LandmarkCollectionDangerZoneView",
+    "LandmarkCollectionDetailsView",
+    "LandmarkCollectionGISView",
+    "LandmarkCollectionListingView",
+    "LandmarkCollectionUserPermissionsView",
+    "MapViewerView",
+    "NewCylinderFleetView",
+    "NewExperimentView",
+    "NewGISViewView",
+    "NewLandmarkCollectionView",
+    "NewProjectView",
+    "NewSensorFleetView",
+    "NewSurfaceNetworkView",
+    "NewTeamView",
+    "PassWordView",
+    "PreferencesView",
+    "ProfileView",
+    "ProjectDangerZoneView",
+    "ProjectDetailsView",
+    "ProjectGitExplorerView",
+    "ProjectGitInstructionsView",
+    "ProjectListingView",
+    "ProjectMutexesView",
+    "ProjectRevisionHistoryView",
+    "ProjectTeamPermissionsView",
+    "ProjectUploadView",
+    "ProjectUserPermissionsView",
+    "SensorFleetDangerZoneView",
+    "SensorFleetDetailsView",
+    "SensorFleetHistoryView",
+    "SensorFleetListingView",
+    "SensorFleetUserPermissionsView",
+    "SensorFleetWatchlistView",
+    "StationTagsView",
+    "SurfaceNetworkDangerZoneView",
+    "SurfaceNetworkDetailsView",
+    "SurfaceNetworkGISView",
+    "SurfaceNetworkListingView",
+    "SurfaceNetworkUserPermissionsView",
+    "TeamDangerZoneView",
+    "TeamDetailsView",
+    "TeamListingView",
+    "TeamMembershipsView",
+    "ToolDMP2Json",
+    "ToolDMPDoctor",
+    "ToolXLSToArianeDMP",
+    "ToolXLSToCompass",
+]

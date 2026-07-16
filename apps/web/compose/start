@@ -1,0 +1,20 @@
+#!/bin/bash
+
+set -o errexit
+set -o pipefail
+set -o nounset
+
+python manage.py migrate
+
+# Install the root asset workspace.
+npm ci
+
+# Vite only rebuilds CSS/JS/TS to disk. Keep both watcher streams attached to
+# the container console while Django remains the HTTP server.
+npm run dev > /dev/stdout 2> /dev/stderr &
+
+# Forward SIGTERM/SIGINT to children
+trap "kill 0" SIGINT SIGTERM
+
+# Run Django dev server (foreground, PID 1)
+exec python manage.py runserver_plus 0000:8000

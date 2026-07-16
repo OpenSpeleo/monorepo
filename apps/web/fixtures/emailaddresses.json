@@ -1,0 +1,32 @@
+[
+    {
+        "model": "account.emailaddress",
+        "pk": 1,
+        "fields": {
+            "user": 1,
+            "email": "contact@speleodb.org",
+            "verified": true,
+            "primary": true
+        }
+    },
+    {
+        "model": "account.emailaddress",
+        "pk": 2,
+        "fields": {
+            "user": 3,
+            "email": "sheck@exley.com",
+            "verified": true,
+            "primary": true
+        }
+    },
+    {
+        "model": "account.emailaddress",
+        "pk": 3,
+        "fields": {
+            "user": 4,
+            "email": "test@speleodb.org",
+            "verified": true,
+            "primary": true
+        }
+    }
+]

@@ -1,0 +1,38 @@
+# Files
+# ls -al | grep '^-r' | awk '{print $9}'
+.DS_Store
+.editorconfig
+.env
+.gitattributes
+.gitignore
+LICENSE
+Makefile
+Procfile
+*.md
+*.yml
+*.yaml
+*.toml
+!pyproject.toml
+!railway.toml
+!railpack.json
+!uv.lock
+
+# Directories
+# ls -al | grep '^d' | awk '{print $9}'
+**/__pycache__
+.envs
+.git
+.github
+.ipython
+.mypy_cache
+.pytest_cache
+.ropeproject
+.ruff_cache
+.venv
+.vscode
+.workdir/emails/
+.workdir/git_projects/
+.workdir/tmp_dl_dir/
+.uv
+docs
+fixtures
