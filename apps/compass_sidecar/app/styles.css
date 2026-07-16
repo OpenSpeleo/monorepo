@@ -1,0 +1,390 @@
+.logo.yew:hover {
+    filter: drop-shadow(0 0 2em #20a88a);
+}
+
+:root {
+    font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
+    font-size: 16px;
+    line-height: 24px;
+    font-weight: 400;
+
+    color: #f6f6f6;
+    background-color: rgb(15 23 42);
+
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    -webkit-text-size-adjust: 100%;
+}
+
+.container {
+    margin: 0 auto;
+    padding: 1rem 1.5rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    box-sizing: border-box;
+}
+
+/* project-list-item styles */
+.project-card {
+    background-color: white;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 16px;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 1);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.project-card:hover {
+    background-color: azure;
+    border: 1px solid rgb(15 23 42);
+}
+
+.vertically-centered-text {
+    margin: 0;
+    padding: 0;
+    display: inline-block;
+    vertical-align: middle;
+}
+
+/* Authentication form layout */
+
+.auth-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    align-items: center;
+    justify-content: flex-start;
+    margin: 1rem auto;
+    max-width: 640px;
+    width: 100%;
+}
+
+.auth-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    width: 100%;
+}
+
+.v-sep {
+    display: none;
+}
+
+.hint {
+    font-size: 0.85em;
+    color: #fff;
+    margin-top: 6px;
+    text-decoration: underline;
+}
+
+/* Accent bar placed under certain fields */
+.accent-bar {
+    height: 6px;
+    background: linear-gradient(90deg, #396cd8, #24c8db);
+    border-radius: 3px;
+    margin: 6px 0 10px 0;
+    width: 100%;
+}
+
+.actions {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    margin-top: 12px;
+}
+
+/* Modal styles */
+.modal {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.45);
+    z-index: 1000;
+}
+
+.modal-card {
+    background: rgb(255, 255, 255);
+    color: #313131;
+    padding: 20px;
+    border-radius: 8px;
+    max-width: 520px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+}
+
+.spinner {
+    border: 4px solid #e5e7eb;
+    border-top-color: rgb(15 23 42);
+    box-shadow: 0px 0px 4px rgb(15 23 42);
+    border-radius: 50%;
+    width: 48px;
+    height: 48px;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes update-notification-spin {
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+.update-notification {
+    position: fixed;
+    right: 16px;
+    bottom: 16px;
+    z-index: 10000;
+    width: min(360px, calc(100vw - 32px));
+    box-sizing: border-box;
+    padding: 12px;
+    border: 1px solid #93c5fd;
+    border-left: 4px solid #2563eb;
+    border-radius: 8px;
+    background: #f8fafc;
+    color: #111827;
+    box-shadow: 0 12px 32px rgba(15, 23, 42, 0.28);
+    text-align: left;
+}
+
+.update-notification--error {
+    border-color: #fca5a5;
+    border-left-color: #dc2626;
+}
+
+.update-notification__content {
+    display: grid;
+    grid-template-columns: 24px 1fr 28px;
+    gap: 10px;
+    align-items: start;
+}
+
+.update-notification__status {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+}
+
+.update-notification__spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid #bfdbfe;
+    border-top-color: #2563eb;
+    border-radius: 50%;
+    animation: update-notification-spin 0.8s linear infinite;
+}
+
+.update-notification__dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 999px;
+    background: #2563eb;
+}
+
+.update-notification--error .update-notification__dot {
+    background: #dc2626;
+}
+
+.update-notification__label {
+    margin: 0 0 2px 0;
+    color: #111827;
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 18px;
+}
+
+.update-notification__message {
+    color: #374151;
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 18px;
+    overflow-wrap: anywhere;
+}
+
+.update-notification__dismiss {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: #4b5563;
+    box-shadow: none;
+    font-size: 16px;
+    line-height: 1;
+}
+
+.update-notification__dismiss:hover {
+    background: #e5e7eb;
+    border-color: transparent;
+}
+
+.update-notification__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.update-notification__actions button {
+    padding: 6px 10px;
+    border-radius: 6px;
+    border: 1px solid #d1d5db;
+    background: #fff;
+    color: #111827;
+    box-shadow: none;
+    font-size: 13px;
+    line-height: 18px;
+}
+
+/* Retry is the primary recovery action — render as a blue CTA. The red
+ * accent on the notification (border-left and status dot) is reserved for
+ * communicating the error state, not for action priority. */
+.update-notification__actions button:first-child {
+    border-color: #2563eb;
+    background: #2563eb;
+    color: #fff;
+}
+
+.update-notification__actions button:first-child:hover {
+    border-color: #1d4ed8;
+    background: #1d4ed8;
+}
+
+@media (max-width: 720px) {
+    .auth-form {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .v-sep {
+        display: none;
+    }
+}
+
+.logo {
+    height: 6em;
+    padding: 1.5em;
+    will-change: filter;
+    transition: 0.75s;
+}
+
+.logo.speleodb:hover {
+    filter: drop-shadow(0 0 2em #24c8db);
+}
+
+.row {
+    display: flex;
+    justify-content: center;
+}
+
+a {
+    font-weight: 500;
+    color: #646cff;
+    text-decoration: inherit;
+}
+
+a:hover {
+    color: #24c8db;
+}
+
+h1 {
+    text-align: center;
+}
+
+input,
+button {
+    border-radius: 8px;
+    border: 1px solid transparent;
+    padding: 0.6em 1.2em;
+    font-size: 1em;
+    font-weight: 500;
+    font-family: inherit;
+    color: #313131;
+    background-color: rgb(205, 205, 205);
+    transition: border-color 0.25s;
+    box-shadow: 0 2px 2px rgba(0, 0, 0, 0.2);
+    outline: none;
+}
+
+input.invalid {
+    border: 2px solid #ef4444;
+    background-color: #fee;
+}
+
+input.invalid:focus {
+    border-color: #dc2626;
+    outline: 2px solid #fca5a5;
+}
+
+input::placeholder,
+textarea::placeholder {
+    color: #4b5668;
+    opacity: 0.8;
+}
+
+.field-error {
+    color: #ef4444;
+    font-size: 0.85em;
+    margin-top: 4px;
+    display: block;
+    text-align: left;
+}
+
+.error-403 {
+    color: #dc2626;
+    font-weight: bold;
+    margin-bottom: 8px;
+}
+
+button {
+    cursor: pointer;
+}
+
+button:hover {
+    border-color: #396cd8;
+}
+
+button:active {
+    border-color: #396cd8;
+    background-color: #0f0f0f69;
+}
+
+/* Project details primary action buttons */
+.project-primary-action-button {
+    background-color: #2563eb;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    font-weight: 500;
+}
+
+.project-primary-action-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.project-primary-action-button:not(:disabled) {
+    cursor: pointer;
+}
+
+#greet-input {
+    margin-right: 5px;
+}

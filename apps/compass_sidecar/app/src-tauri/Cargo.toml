@@ -1,0 +1,65 @@
+[package]
+name = "speleodb-compass-sidecar"
+version.workspace = true
+description = "Companion app to use SpeleoDB with Compass"
+authors = ["Jonathan Dekhtiar", "Zachary Heylmun"]
+edition = "2024"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+# The `_lib` suffix may seem redundant but it is necessary
+# to make the lib name unique and wouldn't conflict with the bin name.
+# This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
+name = "speleodb_compass_sidecar_lib"
+crate-type = ["lib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+# Used in build.rs (under #[cfg(windows)]) to attach the Windows app
+# manifest to *every* linked artifact (bin, examples, benches, AND test
+# exes) instead of only the main bin, which is the gap in tauri-build that
+# causes Tauri-linked test binaries to abort at startup with
+# STATUS_ENTRYPOINT_NOT_FOUND (0xc0000139). Scoped to Windows hosts so
+# non-Windows developers do not pay the compile cost for an unused crate.
+# Already a transitive dep via tauri-winres, so this does not change the
+# lockfile.
+[target.'cfg(windows)'.build-dependencies]
+embed-resource = "3"
+
+[dependencies]
+# Local dependencies
+api = { path = "../../api" }
+common = { path = "../../common" }
+
+# Workspace dependencies
+bytes.workspace = true
+log.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+toml.workspace = true
+url.workspace = true
+uuid.workspace = true
+
+# Cargo dependencies
+chrono = "0.4"
+compass_data = "0.0.7"
+pretty_env_logger = "0.5"
+semver = { version = "1", features = ["serde"] }
+sentry = { version = "0.48", features = ["log"] }
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+tauri-plugin-updater = "2"
+zip = "8"
+dirs = "6"
+flexi_logger = "0.31"
+notify = "8"
+
+[dev-dependencies]
+serial_test = "3"
+
+[target.'cfg(target_os = "windows")'.dependencies]
+sysinfo = "0.39"

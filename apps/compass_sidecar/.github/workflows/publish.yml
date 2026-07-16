@@ -1,0 +1,116 @@
+name: Release
+run-name: "[Release] ${{ github.ref_name }}"
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: release-publishing
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+# This workflow will trigger on each push to the `release` branch to create or update a GitHub release, build your app, and upload the artifacts to the release.
+
+jobs:
+  publish-tauri:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: "macos-latest" # for Arm based macs (M1 and above).
+            args: "--target aarch64-apple-darwin"
+          # - platform: 'macos-latest' # for Intel based macs.
+          #   args: '--target x86_64-apple-darwin'
+          # - platform: 'ubuntu-22.04' # for Tauri v1 you could replace this with ubuntu-20.04.
+          #   args: ''
+          - platform: "windows-latest"
+            args: ""
+
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: setup node
+        uses: actions/setup-node@v6
+        with:
+          node-version: lts/*
+
+      - name: install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Cache cargo tools
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/bin/cargo-binstall*
+            ~/.cargo/bin/trunk*
+            ~/.cargo/.crates.toml
+            ~/.cargo/.crates2.json
+          key: ${{ runner.os }}-release-cargo-tools-${{ hashFiles('.github/workflows/publish.yml') }}
+          restore-keys: |
+            ${{ runner.os }}-release-cargo-tools-
+
+      # Cache Rust dependencies and build artifacts
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+
+      # Cache cargo binaries (tauri-cli and trunk) - this saves ~25 minutes
+      # Cache Trunk frontend build artifacts
+      - name: Cache Trunk build
+        uses: actions/cache@v5
+        with:
+          path: |
+            app/dist
+            target/wasm32-unknown-unknown
+          key: ${{ runner.os }}-trunk-test-${{ hashFiles('app/Trunk.toml', 'app/index.html', 'app/styles.css', 'app/src/**', 'app/Cargo.toml', 'Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-trunk-test-
+
+      - uses: cargo-bins/cargo-binstall@v1.20.0
+
+      - name: Install trunk
+        run: |
+          if ! command -v trunk >/dev/null 2>&1; then
+            cargo binstall --no-confirm --locked trunk
+          fi
+
+      - uses: tauri-apps/tauri-action@action-v0.6.2
+        env:
+          TRUNK_BUILD_RELEASE: "true"
+          SENTRY_DSN_SPELEODB_COMPASS: ${{ secrets.SENTRY_DSN_SPELEODB_COMPASS }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Tauri Updater signing (required for in-app self-update)
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          # -------------------------- Apple code signing -------------------------- #
+          # ENABLE_CODE_SIGNING: "true"
+          # APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          # APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          # APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          # APPLE_ID: ${{ secrets.APPLE_ID }}
+          # APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          # APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          # -------------------------- macOS ad-hoc code signing -------------------------- #
+          # macOS ad-hoc code signing. Pseudo-identity "-" runs `codesign -s -`
+          # so the bundle is locally signed and bypasses the "App is damaged"
+          # Gatekeeper hard-block on Apple Silicon. Users still see the
+          # "unidentified developer" warning and must right-click -> Open the
+          # first time. Replace with a real Developer ID + APPLE_CERTIFICATE /
+          # APPLE_ID / APPLE_TEAM_ID flow once a paid Apple Developer account
+          # is available (then notarization can be enabled too).
+          APPLE_SIGNING_IDENTITY: "-"
+
+        with:
+          tagName: v__VERSION__ # the action automatically replaces \_\_VERSION\_\_ with the app version.
+          releaseName: "App v__VERSION__"
+          releaseBody: "See the assets to download this version and install."
+          releaseDraft: true
+          prerelease: false
+          args: ${{ matrix.args }}
+          includeUpdaterJson: true

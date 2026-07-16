@@ -1,0 +1,61 @@
+repos:
+  # -------------------------
+  # Generic sanity checks
+  # -------------------------
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: ^app/src-tauri/assets/test_data/
+      - id: end-of-file-fixer
+        exclude: ^app/src-tauri/assets/test_data/
+      - id: check-json
+      - id: check-toml
+      - id: check-xml
+      - id: check-yaml
+      - id: debug-statements
+      - id: check-builtin-literals
+      - id: check-case-conflict
+      - id: check-docstring-first
+      - id: detect-private-key
+
+  # -------------------------
+  # Rust formatting
+  # -------------------------
+  - repo: local
+    hooks:
+      - id: cargo-fmt
+        name: cargo fmt
+        entry: cargo fmt --all
+        language: system
+        types: [rust]
+        pass_filenames: false
+
+      # -------------------------
+      # Rust linting (clippy)
+      # -------------------------
+      - id: cargo-clippy
+        name: cargo clippy
+        entry: cargo clippy --all-targets --all-features -- -D warnings
+        language: system
+        types: [rust]
+        pass_filenames: false
+
+      # -------------------------
+      # Rust compile check (fast)
+      # -------------------------
+      - id: cargo-check
+        name: cargo check
+        entry: cargo check --all-targets --all-features
+        language: system
+        pass_filenames: false
+
+  # -------------------------
+  # Frontend (if using Tauri typical stack)
+  # -------------------------
+  - repo: https://github.com/pre-commit/mirrors-eslint
+    rev: v10.4.1
+    hooks:
+      - id: eslint
+        additional_dependencies: ["eslint"]
+        files: \.(js|ts|tsx)$

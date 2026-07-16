@@ -1,0 +1,868 @@
+use crate::{paths::compass_dir_path, project_management::ProjectManager, user_prefs::UserPrefs};
+use chrono::{DateTime, Utc};
+use common::{
+    ApiInfo, Error,
+    api_types::ProjectInfo,
+    ui_state::{
+        LoadingState, LocalProjectStatus, ProjectSaveResult, ProjectStatus, UiState,
+        UpdateNotification,
+    },
+};
+use log::{debug, error, info, trace, warn};
+use notify::{RecursiveMode, Watcher};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::{
+        Mutex,
+        atomic::{AtomicBool, AtomicU64, Ordering},
+    },
+    time::Duration,
+};
+use tauri::{
+    AppHandle, Emitter, Manager, Runtime,
+    async_runtime::JoinHandle,
+    menu::{Menu, MenuBuilder, Submenu, SubmenuBuilder},
+};
+use uuid::Uuid;
+
+const PROJECT_INFO_UPDATE_INTERVAL: Duration = Duration::from_secs(120); // update the list of projects status every 2 minutes
+
+/// Event key for UI state notifications
+pub const UI_STATE_EVENT: &str = "ui-state-update";
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum AppMenuSection {
+    Application,
+    Account,
+    Edit,
+    Help,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum EditMenuAction {
+    Cut,
+    Copy,
+    Paste,
+    SelectAll,
+}
+
+const EDIT_MENU_ACTIONS: [EditMenuAction; 4] = [
+    EditMenuAction::Cut,
+    EditMenuAction::Copy,
+    EditMenuAction::Paste,
+    EditMenuAction::SelectAll,
+];
+
+fn app_menu_sections(has_token: bool) -> Vec<AppMenuSection> {
+    if has_token {
+        vec![
+            AppMenuSection::Application,
+            AppMenuSection::Account,
+            AppMenuSection::Edit,
+            AppMenuSection::Help,
+        ]
+    } else {
+        vec![
+            AppMenuSection::Application,
+            AppMenuSection::Edit,
+            AppMenuSection::Help,
+        ]
+    }
+}
+
+fn build_application_submenu<R, M>(manager: &M) -> tauri::Result<Submenu<R>>
+where
+    R: Runtime,
+    M: Manager<R>,
+{
+    SubmenuBuilder::new(manager, "SpeleoDB Compass Sidecar")
+        .quit()
+        .build()
+}
+
+fn build_account_submenu<R, M>(manager: &M) -> tauri::Result<Submenu<R>>
+where
+    R: Runtime,
+    M: Manager<R>,
+{
+    SubmenuBuilder::new(manager, "Account")
+        .text("sign_out", "Sign Out")
+        .build()
+}
+
+fn build_edit_submenu<R, M>(manager: &M) -> tauri::Result<Submenu<R>>
+where
+    R: Runtime,
+    M: Manager<R>,
+{
+    let mut builder = SubmenuBuilder::new(manager, "Edit");
+    for action in EDIT_MENU_ACTIONS {
+        builder = match action {
+            EditMenuAction::Cut => builder.cut(),
+            EditMenuAction::Copy => builder.copy(),
+            EditMenuAction::Paste => builder.paste(),
+            EditMenuAction::SelectAll => builder.select_all(),
+        };
+    }
+    builder.build()
+}
+
+fn build_help_submenu<R, M>(manager: &M) -> tauri::Result<Submenu<R>>
+where
+    R: Runtime,
+    M: Manager<R>,
+{
+    SubmenuBuilder::new(manager, "Help")
+        .text("check_for_updates_now", "Check for Updates Now")
+        .text("about", "About")
+        .build()
+}
+
+fn build_app_menu<R, M>(manager: &M, has_token: bool) -> tauri::Result<Menu<R>>
+where
+    R: Runtime,
+    M: Manager<R>,
+{
+    let mut builder = MenuBuilder::new(manager);
+
+    for section in app_menu_sections(has_token) {
+        match section {
+            AppMenuSection::Application => {
+                let submenu = build_application_submenu(manager)?;
+                builder = builder.item(&submenu);
+            }
+            AppMenuSection::Account => {
+                let submenu = build_account_submenu(manager)?;
+                builder = builder.item(&submenu);
+            }
+            AppMenuSection::Edit => {
+                let submenu = build_edit_submenu(manager)?;
+                builder = builder.item(&submenu);
+            }
+            AppMenuSection::Help => {
+                let submenu = build_help_submenu(manager)?;
+                builder = builder.item(&submenu);
+            }
+        }
+    }
+
+    builder.build()
+}
+
+pub struct AppState {
+    app_handle: Mutex<Option<AppHandle>>,
+    initializing: Mutex<bool>,
+    loading_state: Mutex<LoadingState>,
+    api_info: Mutex<ApiInfo>,
+    project_info: Mutex<HashMap<uuid::Uuid, ProjectInfo>>,
+    active_project: Mutex<Option<uuid::Uuid>>,
+    project_downloading: Mutex<bool>,
+    compass_pid: Mutex<Option<u32>>,
+    background_task_handle: Mutex<Option<JoinHandle<()>>>,
+    last_project_update: Mutex<DateTime<Utc>>,
+    last_emitted_ui_state: Mutex<UiState>,
+    emit_mutex: tokio::sync::Mutex<()>,
+    pub(crate) update_notification: Mutex<Option<UpdateNotification>>,
+    pub(crate) dismissed_update_notification_keys: Mutex<HashSet<String>>,
+    pub(crate) next_update_notification_id: AtomicU64,
+    pub(crate) startup_update_check_started: AtomicBool,
+    pub(crate) update_workflow_running: AtomicBool,
+    /// Set when a manual update check is requested while another workflow is
+    /// already running. The running workflow consumes this flag so that
+    /// no-update completions show the manual `up to date` notification, and
+    /// any leftover signal triggers a follow-up manual check after release.
+    pub(crate) pending_manual_update_check: AtomicBool,
+    /// Flag indicating the WebView frontend is ready to receive events.
+    /// Set to `true` when the first `ensure_initialized` IPC call arrives from the frontend.
+    /// Before this flag is set, `emit_str` calls are skipped to avoid crashing WebView2.
+    webview_ready: AtomicBool,
+}
+
+impl AppState {
+    pub fn new() -> Self {
+        Self {
+            app_handle: Mutex::new(None),
+            initializing: Mutex::new(false),
+            loading_state: Mutex::new(LoadingState::NotStarted),
+            api_info: Mutex::new(ApiInfo::default()),
+            project_info: Mutex::new(HashMap::new()),
+            active_project: Mutex::new(None),
+            project_downloading: Mutex::new(false),
+            compass_pid: Mutex::new(None),
+            background_task_handle: Mutex::new(None),
+            last_project_update: Mutex::new(chrono::Utc::now()),
+            last_emitted_ui_state: Mutex::new(UiState::default()),
+            emit_mutex: tokio::sync::Mutex::new(()),
+            update_notification: Mutex::new(None),
+            dismissed_update_notification_keys: Mutex::new(HashSet::new()),
+            next_update_notification_id: AtomicU64::new(1),
+            startup_update_check_started: AtomicBool::new(false),
+            update_workflow_running: AtomicBool::new(false),
+            pending_manual_update_check: AtomicBool::new(false),
+            webview_ready: AtomicBool::new(false),
+        }
+    }
+
+    pub fn reset_ui_state(&self) {
+        *self.last_emitted_ui_state.lock().unwrap() = UiState::default();
+    }
+
+    /// Mark the WebView frontend as ready to receive events.
+    /// Called when the first `ensure_initialized` IPC arrives from the WASM frontend.
+    pub fn mark_webview_ready(&self) {
+        self.webview_ready.store(true, Ordering::SeqCst);
+    }
+
+    /// Check whether the WebView frontend is ready to receive events.
+    pub fn is_webview_ready(&self) -> bool {
+        self.webview_ready.load(Ordering::SeqCst)
+    }
+
+    /// Asynchronously initialize the application state.
+    pub async fn init_app_state(&self, app_handle: &AppHandle) {
+        if self.app_handle.lock().unwrap().is_none() {
+            *self.app_handle.lock().unwrap() = Some(app_handle.clone());
+        }
+        if self.initializing() {
+            return;
+        }
+        self.set_initializing(true);
+        let mut loading_state = self.loading_state();
+        loop {
+            match &loading_state {
+                LoadingState::Failed(e) => {
+                    warn!("Previous initialization failed with error: {}", e);
+                    // Emit the failure so the frontend can leave the loading
+                    // screen and show the error. Without this, an init failure
+                    // that first occurred while the WebView wasn't ready (its
+                    // emit suppressed by the readiness gate) would never reach
+                    // the UI, stalling the app on the spinner indefinitely.
+                    self.emit_app_state_change().await;
+                    self.set_initializing(false);
+                    break;
+                }
+                LoadingState::Unauthenticated | LoadingState::Ready => {
+                    self.apply_menu_for_auth_state();
+                    self.emit_app_state_change().await;
+                    self.set_initializing(false);
+                    if self.background_task_handle.lock().unwrap().is_none() {
+                        let app_handle = app_handle.clone();
+                        let join_handle = tauri::async_runtime::spawn(async move {
+                            AppState::background_update_task(&app_handle).await;
+                        });
+                        *self.background_task_handle.lock().unwrap() = Some(join_handle);
+                    }
+                    break;
+                }
+                _ => {
+                    loading_state = self.init_internal().await;
+                }
+            }
+        }
+    }
+
+    fn app_handle(&self) -> Result<AppHandle, Error> {
+        self.app_handle
+            .lock()
+            .unwrap()
+            .clone()
+            .ok_or(Error::NoAppHandle)
+    }
+
+    pub fn api_info(&self) -> ApiInfo {
+        self.api_info.lock().unwrap().clone()
+    }
+
+    fn set_api_info(&self, api_info: ApiInfo) {
+        *self.api_info.lock().unwrap() = api_info;
+    }
+
+    pub fn update_user_prefs(&self, prefs: UserPrefs) -> Result<(), Error> {
+        let _ = self.app_handle()?;
+        prefs.save()?;
+        self.set_api_info(prefs.api_info().clone());
+
+        // Menu update is deferred to `apply_menu_for_auth_state()`.
+        // Do NOT spawn set_menu or emit_app_state_change here.
+
+        Ok(())
+    }
+
+    /// Apply the correct menu bar based on the current authentication state.
+    /// Called once after initialization reaches a terminal state (Ready / Unauthenticated)
+    /// to avoid racing with WebView2 event callbacks during the rapid init sequence.
+    ///
+    /// Failures (menu construction, `set_menu`) are logged rather than
+    /// propagated. We never want a transient menu-API hiccup to take the app
+    /// down while the user is signing in or out.
+    fn apply_menu_for_auth_state(&self) {
+        let Ok(app_handle) = self.app_handle() else {
+            return;
+        };
+        let has_token = self.api_info().oauth_token().is_some();
+        let menu = match build_app_menu(&app_handle, has_token) {
+            Ok(menu) => menu,
+            Err(e) => {
+                error!("Failed to build application menu: {}", e);
+                return;
+            }
+        };
+        if let Err(e) = app_handle.set_menu(menu) {
+            error!("Failed to set application menu: {}", e);
+        }
+    }
+
+    pub async fn authenticated(&self) -> () {
+        if let Ok(app_handle) = self.app_handle() {
+            self.set_loading_state(LoadingState::LoadingProjects).await;
+            self.init_app_state(&app_handle).await;
+        }
+    }
+
+    pub fn sign_out(&self, app_handle: &AppHandle) -> Result<(), Error> {
+        UserPrefs::forget()?;
+        {
+            let mut project_lock = self.project_info.lock().unwrap();
+            project_lock.clear();
+        }
+        {
+            let user_prefs = ApiInfo::default();
+            *self.api_info.lock().unwrap() = user_prefs;
+        }
+        self.set_loading_state_sync(LoadingState::NotStarted);
+        tauri::async_runtime::spawn({
+            let app_handle = app_handle.clone();
+            async move {
+                let app_state = app_handle.state::<AppState>();
+                app_state.emit_app_state_change().await;
+                app_state.init_app_state(&app_handle).await;
+            }
+        });
+        Ok(())
+    }
+
+    pub async fn update_local_project(
+        &self,
+        project_info: ProjectInfo,
+    ) -> Result<ProjectStatus, Error> {
+        self.set_project_info(project_info.clone());
+        let mut project = ProjectManager::initialize_from_info(project_info);
+        let project_status = project.update_project(&self.api_info()).await?;
+        Ok(project_status)
+    }
+
+    pub async fn set_active_project(&self, project_id: Option<Uuid>) -> Result<(), Error> {
+        if let Some(project_id) = project_id {
+            info!("Selecting: {project_id} as active project");
+
+            // Immediately switch to the project detail view and show downloading spinner
+            *self.active_project.lock().unwrap() = Some(project_id);
+            *self.project_downloading.lock().unwrap() = true;
+            self.emit_app_state_change().await;
+
+            // Now do the heavy work (mutex acquisition + download)
+            let result = async {
+                match api::project::acquire_project_mutex(&self.api_info(), project_id).await {
+                    Ok(info) => {
+                        info!("Project lock grabbed successfully");
+                        let project = ProjectManager::initialize_from_info(info.clone());
+                        project.make_local(&self.api_info()).await?;
+                        self.update_local_project(info).await?;
+                    }
+                    Err(_e) => {
+                        warn!(
+                            "Failed to grab lock for project: {project_id}, opening as read-only"
+                        );
+                    }
+                };
+                Ok::<(), Error>(())
+            }
+            .await;
+
+            // Clear downloading state regardless of success/failure
+            *self.project_downloading.lock().unwrap() = false;
+            self.emit_app_state_change().await;
+
+            // Propagate any error from the download
+            result?;
+        } else if let Some(active_project) = self.get_active_project_status() {
+            *self.active_project.lock().unwrap() = None;
+            self.set_loading_state_sync(LoadingState::LoadingProjects);
+            self.emit_app_state_change().await;
+            if let LocalProjectStatus::Dirty = active_project.local_status() {
+                warn!("Refusing to release project mutex for dirty project");
+            } else {
+                info!("Releasing mutex for clean active project");
+                if let Some(active_mutex) = active_project.active_mutex()
+                    && let Some(email) = self.api_info().email()
+                    && active_mutex.user == email
+                {
+                    info!("Active mutex owned by current user, releasing");
+                    let project_info =
+                        api::project::release_project_mutex(&self.api_info(), active_project.id())
+                            .await?;
+                    self.update_local_project(project_info).await?;
+                } else {
+                    warn!("Active mutex not owned by current user, skipping release");
+                }
+            }
+            self.init_internal().await;
+        };
+        Ok(())
+    }
+
+    pub fn get_active_project_id(&self) -> Option<uuid::Uuid> {
+        *self.active_project.lock().unwrap()
+    }
+
+    pub fn get_active_project_status(&self) -> Option<ProjectStatus> {
+        let active_project_id = self.get_active_project_id()?;
+        let project_lock = self.project_info.lock().unwrap();
+        let project_info = project_lock.get(&active_project_id)?;
+        let project_manager = ProjectManager::initialize_from_info(project_info.clone());
+        Some(project_manager.project_status())
+    }
+
+    pub async fn save_active_project(
+        &self,
+        commit_message: String,
+    ) -> Result<ProjectSaveResult, Error> {
+        let Some(project_id) = self.get_active_project_id() else {
+            error!("No active project to save");
+            return Err(Error::NoProjectSelected);
+        };
+        let project_info = self
+            .get_project_info(project_id)
+            .ok_or(Error::NoProjectSelected)?;
+        let mut project_manager = ProjectManager::initialize_from_info(project_info);
+        let api_info = self.api_info();
+        let result = project_manager
+            .save_local_changes(&api_info, commit_message)
+            .await?;
+
+        // After a successful upload, sync local state: copy working_copy -> index
+        // and update .revision.txt. We must NOT call update_local_copies here because
+        // it overwrites the working copy, which fails on Windows when Compass holds
+        // file locks on the project files.
+        let old_commit_id = project_manager.latest_remote_commit().map(|c| c.id.clone());
+        let updated_project_info =
+            Self::fetch_project_info_after_save(&api_info, project_id, old_commit_id.as_deref())
+                .await?;
+        let project_manager = ProjectManager::initialize_from_info(updated_project_info.clone());
+        project_manager.sync_after_save()?;
+        self.set_project_info(updated_project_info);
+        self.emit_app_state_change().await;
+        Ok(result)
+    }
+
+    /// Fetch project info after a save, retrying briefly if the server
+    /// hasn't yet reflected the new commit (eventual consistency).
+    async fn fetch_project_info_after_save(
+        api_info: &ApiInfo,
+        project_id: uuid::Uuid,
+        old_commit_id: Option<&str>,
+    ) -> Result<ProjectInfo, Error> {
+        const MAX_RETRIES: u32 = 3;
+        const RETRY_DELAY: std::time::Duration = std::time::Duration::from_millis(500);
+
+        for attempt in 0..=MAX_RETRIES {
+            let info = api::project::fetch_project_info(api_info, project_id).await?;
+            let new_commit_id = info.latest_commit.as_ref().map(|c| c.id.as_str());
+            if new_commit_id != old_commit_id {
+                return Ok(info);
+            }
+            if attempt < MAX_RETRIES {
+                debug!(
+                    "Server still returning old commit for project {} (attempt {}/{}), retrying",
+                    project_id,
+                    attempt + 1,
+                    MAX_RETRIES
+                );
+                tokio::time::sleep(RETRY_DELAY).await;
+            }
+        }
+        warn!(
+            "Server did not reflect new commit for project {} after {} retries; \
+             proceeding with available data",
+            project_id, MAX_RETRIES
+        );
+        api::project::fetch_project_info(api_info, project_id).await
+    }
+
+    pub async fn discard_active_project_changes(&self) -> Result<(), Error> {
+        let Some(project_id) = self.get_active_project_id() else {
+            error!("No active project to discard changes for");
+            return Err(Error::NoProjectSelected);
+        };
+        let project_info = self
+            .get_project_info(project_id)
+            .ok_or(Error::NoProjectSelected)?;
+        let project_manager = ProjectManager::initialize_from_info(project_info);
+        let api_info = self.api_info();
+        project_manager.update_local_copies(&api_info).await?;
+        self.emit_app_state_change().await;
+        Ok(())
+    }
+
+    pub fn compass_is_open(&self) -> bool {
+        self.compass_pid.lock().unwrap().is_some()
+    }
+
+    #[cfg(target_os = "windows")]
+    pub fn set_compass_pid(&self, pid: Option<u32>) {
+        *self.compass_pid.lock().unwrap() = pid;
+        // Spawn emit in a separate task since this function is sync
+        if let Ok(app_handle) = self.app_handle() {
+            tauri::async_runtime::spawn(async move {
+                let app_state = app_handle.state::<AppState>();
+                app_state.emit_app_state_change().await;
+            });
+        }
+    }
+
+    #[cfg(target_os = "windows")]
+    fn get_compass_pid(&self) -> Option<u32> {
+        *self.compass_pid.lock().unwrap()
+    }
+
+    /// Check if the Compass process is still running and update state if it has exited.
+    #[cfg(target_os = "windows")]
+    fn check_compass_process(&self) {
+        use sysinfo::System;
+
+        if let Some(pid) = self.get_compass_pid() {
+            let s = System::new_all();
+            let pid = sysinfo::Pid::from_u32(pid);
+            if s.process(pid).is_none() {
+                info!("Compass process (PID {}) has exited", pid);
+                self.set_compass_pid(None);
+            }
+        }
+    }
+
+    pub async fn emit_app_state_change(&self) {
+        let _emit_lock = self.emit_mutex.lock().await;
+        let loading_state = self.loading_state();
+        // Clone project info while holding lock briefly, then release before doing I/O
+        let mut projects: Vec<ProjectInfo> = match self.project_info.lock() {
+            Ok(guard) => guard.values().cloned().collect(),
+            Err(e) => {
+                error!("Failed to lock project_info: {}", e);
+                return;
+            }
+        };
+        // Sort by modified_date descending for consistent ordering
+        projects.sort_by(|a, b| b.modified_date.cmp(&a.modified_date));
+        // Compute project statuses without holding the lock (this does file I/O)
+        let project_statuses: Vec<ProjectStatus> = projects
+            .into_iter()
+            .map(|p| ProjectManager::initialize_from_info(p).project_status())
+            .collect();
+        let user_email = self.api_info().email().map(|s| s.to_string());
+        let active_project_id = self.get_active_project_id();
+        let compass_is_open = self.compass_is_open();
+        let project_downloading = *self.project_downloading.lock().unwrap();
+        let update_notification = self.update_notification.lock().unwrap().clone();
+        let ui_state = UiState::new(
+            loading_state.clone(),
+            user_email,
+            project_statuses,
+            active_project_id,
+            compass_is_open,
+            project_downloading,
+            update_notification,
+        );
+        // Only send if the state has actually changed
+        {
+            let mut last_state = match self.last_emitted_ui_state.lock() {
+                Ok(guard) => guard,
+                Err(e) => {
+                    error!("Failed to lock last_emitted_ui_state: {}", e);
+                    return;
+                }
+            };
+            if *last_state == ui_state {
+                return;
+            }
+            *last_state = ui_state.clone();
+        }
+
+        // ── WebView readiness gate ──
+        // If the WebView hasn't signaled readiness (via ensure_initialized IPC),
+        // we update internal state above but skip the actual emit_str call.
+        // This prevents STATUS_FATAL_USER_CALLBACK_EXCEPTION (0xc000041d) on
+        // Windows when WebView2 hasn't finished initializing its JS runtime.
+        if !self.is_webview_ready() {
+            return;
+        }
+
+        // Serialize and send to frontend
+        let serialized = match serde_json::to_string(&ui_state) {
+            Ok(s) => s,
+            Err(e) => {
+                error!("Failed to serialize UI state: {}", e);
+                return;
+            }
+        };
+
+        // Get app handle for emitting
+        let app_handle = match self.app_handle() {
+            Ok(handle) => handle,
+            Err(e) => {
+                error!("No app handle available for emit: {}", e);
+                return;
+            }
+        };
+        // Emit event to frontend
+        if let Err(e) = app_handle.emit_str(UI_STATE_EVENT, serialized) {
+            error!("Failed to emit UI state event: {}", e);
+        }
+    }
+
+    fn initializing(&self) -> bool {
+        *self.initializing.lock().unwrap()
+    }
+
+    fn set_initializing(&self, initializing: bool) {
+        *self.initializing.lock().unwrap() = initializing;
+    }
+
+    fn loading_state(&self) -> LoadingState {
+        self.loading_state.lock().unwrap().clone()
+    }
+
+    /// Internal sync function to update loading state without emitting (for use in async contexts).
+    fn set_loading_state_sync(&self, state: LoadingState) -> LoadingState {
+        *self.loading_state.lock().unwrap() = state.clone();
+        state
+    }
+
+    /// Internal async function to update loading state and emit state change event.
+    async fn set_loading_state(&self, state: LoadingState) -> LoadingState {
+        *self.loading_state.lock().unwrap() = state.clone();
+        self.emit_app_state_change().await;
+        state
+    }
+
+    fn load_user_preferences(&self) -> UserPrefs {
+        info!("Loading user preferences");
+        let user_prefs = UserPrefs::load().unwrap_or_default();
+        self.update_user_prefs(user_prefs.clone())
+            .unwrap_or_else(|e| {
+                log::warn!("Failed to save loaded user preferences: {}", e);
+            });
+        user_prefs
+    }
+
+    async fn authenticate_user(&self) -> Result<(), String> {
+        let api_info = self.api_info();
+        info!("Authenticating user");
+        let Some(token) = api_info.oauth_token() else {
+            log::warn!("No OAuth token found in user preferences");
+            return Err("No OAuth token found".to_string());
+        };
+        match api::auth::authorize_with_token(api_info.instance().clone(), token).await {
+            Ok(api_info) => {
+                log::info!("User authenticated successfully");
+                let prefs = UserPrefs::new(api_info);
+                if self.update_user_prefs(prefs).is_err() {
+                    log::warn!("Failed to save user preferences after authentication");
+                }
+                Ok(())
+            }
+            Err(e) => {
+                log::warn!("Failed to authenticate user with saved token: {}", e);
+                Err(e)
+            }
+        }
+    }
+
+    async fn load_user_projects(&self) -> Result<Vec<ProjectInfo>, Error> {
+        info!("Loading user projects");
+        let api_info = self.api_info();
+        // Errors are propagated; both callers (init and the background task)
+        // log the failure themselves, so we don't log it again here to avoid
+        // duplicate Sentry breadcrumbs/events for a single failure.
+        let projects = api::project::fetch_projects(&api_info).await?;
+        self.clear_local_projects();
+        for project in projects.clone() {
+            self.update_local_project(project).await?;
+        }
+        *self.last_project_update.lock().unwrap() = chrono::Utc::now();
+        Ok(projects)
+    }
+
+    /// Advance the loading state machine by one step.
+    async fn init_internal(&self) -> LoadingState {
+        let loading_state = self.loading_state();
+        match loading_state {
+            LoadingState::NotStarted => self.set_loading_state(LoadingState::LoadingPrefs).await,
+            LoadingState::LoadingPrefs => {
+                let prefs = self.load_user_preferences();
+                if let Some(_token) = prefs.api_info().oauth_token() {
+                    self.set_loading_state(LoadingState::Authenticating).await
+                } else {
+                    self.set_loading_state(LoadingState::Unauthenticated).await
+                }
+            }
+            LoadingState::Authenticating => match self.authenticate_user().await {
+                Ok(_) => self.set_loading_state(LoadingState::LoadingProjects).await,
+                Err(_) => self.set_loading_state(LoadingState::Unauthenticated).await,
+            },
+            LoadingState::LoadingProjects => match self.load_user_projects().await {
+                Ok(_) => self.set_loading_state(LoadingState::Ready).await,
+                Err(e) => {
+                    // error! (not warn!) so the SentryLogger forwards this hard
+                    // initialization failure as an event. This is the failure
+                    // that previously stalled launch silently.
+                    error!("Failed to load user projects: {}", e);
+                    self.set_loading_state(LoadingState::Failed(e)).await
+                }
+            },
+            _ => loading_state,
+        }
+    }
+
+    fn set_project_info(&self, project_info: ProjectInfo) {
+        let mut project_lock = self.project_info.lock().unwrap();
+        project_lock.insert(project_info.id, project_info);
+    }
+
+    fn get_project_info(&self, project_id: Uuid) -> Option<ProjectInfo> {
+        let project_lock = self.project_info.lock().unwrap();
+        project_lock.get(&project_id).cloned()
+    }
+
+    fn clear_local_projects(&self) {
+        let mut project_lock = self.project_info.lock().unwrap();
+        project_lock.clear();
+    }
+
+    async fn background_update_task(app_handle: &AppHandle) {
+        let app_state = app_handle.state::<AppState>();
+
+        // Set up filesystem watcher on the projects directory so we only
+        // re-check local project statuses when something actually changes
+        // on disk, instead of polling every second.
+        let (fs_tx, fs_rx) = std::sync::mpsc::channel();
+        let mut watcher = notify::recommended_watcher(move |res| {
+            if let Ok(event) = res {
+                let _ = fs_tx.send(event);
+            }
+        });
+        match &mut watcher {
+            Ok(w) => {
+                let projects_dir = compass_dir_path();
+                if !projects_dir.exists()
+                    && let Err(e) = std::fs::create_dir_all(projects_dir)
+                {
+                    error!("Failed to create projects directory for watcher: {}", e);
+                }
+                if let Err(e) = w.watch(projects_dir, RecursiveMode::Recursive) {
+                    error!("Failed to start filesystem watcher: {}", e);
+                }
+            }
+            Err(e) => {
+                error!("Failed to create filesystem watcher: {}", e);
+            }
+        }
+
+        loop {
+            // Remote API update on a timer
+            let last_project_update = *app_state.last_project_update.lock().unwrap();
+            if chrono::Utc::now()
+                .signed_duration_since(last_project_update)
+                .to_std()
+                .unwrap()
+                >= PROJECT_INFO_UPDATE_INTERVAL
+            {
+                trace!("Background task: updating project info from API");
+                match app_state.load_user_projects().await {
+                    Ok(_) => {
+                        app_state.emit_app_state_change().await;
+                    }
+                    Err(e) => {
+                        error!("Background task: failed to update project info: {}", e);
+                    }
+                }
+            }
+
+            // Drain filesystem events — only recheck local status when files changed
+            let mut fs_changed = false;
+            while fs_rx.try_recv().is_ok() {
+                fs_changed = true;
+            }
+
+            if fs_changed {
+                trace!(
+                    "Background task: filesystem change detected, checking local project statuses"
+                );
+                let project_info: Vec<ProjectInfo> = app_state
+                    .project_info
+                    .lock()
+                    .unwrap()
+                    .values()
+                    .cloned()
+                    .collect();
+                for project in project_info {
+                    let project_id = project.id;
+                    if let Err(e) = app_state.update_local_project(project).await {
+                        error!(
+                            "Background task: failed to update local project {}: {}",
+                            project_id, e
+                        );
+                    }
+                }
+                app_state.emit_app_state_change().await;
+            }
+
+            #[cfg(target_os = "windows")]
+            app_state.check_compass_process();
+
+            tokio::time::sleep(Duration::from_secs(1)).await;
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{AppMenuSection, EDIT_MENU_ACTIONS, EditMenuAction, app_menu_sections};
+
+    #[test]
+    fn unauthenticated_menu_keeps_quit_edit_and_help_actions() {
+        assert_eq!(
+            app_menu_sections(false),
+            vec![
+                AppMenuSection::Application,
+                AppMenuSection::Edit,
+                AppMenuSection::Help
+            ]
+        );
+    }
+
+    #[test]
+    fn authenticated_menu_keeps_quit_account_edit_and_help_actions() {
+        assert_eq!(
+            app_menu_sections(true),
+            vec![
+                AppMenuSection::Application,
+                AppMenuSection::Account,
+                AppMenuSection::Edit,
+                AppMenuSection::Help
+            ]
+        );
+    }
+
+    #[test]
+    fn edit_menu_contains_standard_clipboard_actions() {
+        assert_eq!(
+            EDIT_MENU_ACTIONS,
+            [
+                EditMenuAction::Cut,
+                EditMenuAction::Copy,
+                EditMenuAction::Paste,
+                EditMenuAction::SelectAll
+            ]
+        );
+    }
+}

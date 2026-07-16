@@ -1,0 +1,9 @@
+dist/
+target/
+gen/
+
+.DS_Store
+
+.env
+
+.claude/
