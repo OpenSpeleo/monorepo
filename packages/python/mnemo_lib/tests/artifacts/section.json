@@ -1,0 +1,46 @@
+{
+    "date": "2024-12-14 15:20",
+    "direction": "IN",
+    "name": "EA1",
+    "shots": [
+        {
+            "depth_in": 9.39,
+            "depth_out": 11.03,
+            "down": 0.0,
+            "head_in": 276.1,
+            "head_out": 279.9,
+            "hours": 15,
+            "left": 0.0,
+            "length": 3.29,
+            "marker_idx": 0,
+            "minutes": 20,
+            "pitch_in": -29.9,
+            "pitch_out": -30.9,
+            "right": 0.0,
+            "seconds": 55,
+            "temperature": 25.3,
+            "type": "STANDARD",
+            "up": 0.0
+        },
+        {
+            "depth_in": 9.39,
+            "depth_out": 11.03,
+            "down": 0.0,
+            "head_in": 276.1,
+            "head_out": 279.9,
+            "hours": 15,
+            "left": 0.0,
+            "length": 3.29,
+            "marker_idx": 0,
+            "minutes": 20,
+            "pitch_in": -29.9,
+            "pitch_out": -30.9,
+            "right": 0.0,
+            "seconds": 55,
+            "temperature": 25.3,
+            "type": "STANDARD",
+            "up": 0.0
+        }
+    ],
+    "version": 5
+}
