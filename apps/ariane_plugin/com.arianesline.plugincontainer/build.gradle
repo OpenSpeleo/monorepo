@@ -1,0 +1,27 @@
+plugins {
+  id 'application'
+}
+
+application {
+  mainModule = 'com.arianesline.plugincontainer'
+  mainClass = 'com.arianesline.plugincontainer.PluginContainerApplication'
+}
+
+dependencies {
+  api project(':com.arianesline.cavelib.api')
+  api project(':com.arianesline.ariane.plugin.api')
+  implementation("jakarta.xml.bind:jakarta.xml.bind-api:4.0.2")
+  implementation("org.glassfish.jaxb:jaxb-runtime:4.0.5")
+  implementation("jakarta.json:jakarta.json-api:2.1.3")
+  implementation ('org.eclipse.parsson:parsson:1.1.4')
+}
+
+// Forward -PsmokeExitAfterStart=true as -DsmokeExitAfterStart=true to the JavaFX app.
+// CI uses this to load the plugin JAR via the module layer + ServiceLoader and exit
+// immediately, with a non-zero exit code if no DataServerPlugin is discoverable.
+run {
+    if (project.hasProperty('smokeExitAfterStart')) {
+        systemProperty 'smokeExitAfterStart',
+                project.property('smokeExitAfterStart').toString()
+    }
+}

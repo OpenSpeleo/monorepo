@@ -1,0 +1,164 @@
+package com.arianesline.plugincontainer;
+
+import static com.arianesline.ariane.plugin.api.DataServerCommands.LOAD;
+import static com.arianesline.ariane.plugin.api.DataServerCommands.LOAD_AGR;
+import static com.arianesline.ariane.plugin.api.DataServerCommands.REDRAW;
+import static com.arianesline.ariane.plugin.api.DataServerCommands.SAVE;
+import static com.arianesline.ariane.plugin.api.DataServerCommands.SAVE_AGR;
+
+import java.io.File;
+import java.net.URL;
+import java.util.Comparator;
+import java.util.ResourceBundle;
+
+import com.arianesline.ariane.plugin.api.DataServerCommands;
+import com.arianesline.ariane.plugin.api.Plugin;
+import com.arianesline.ariane.plugin.api.PluginInterface;
+import com.arianesline.cavelib.api.AggregationInterface;
+
+import javafx.animation.PauseTransition;
+import javafx.application.Platform;
+import javafx.fxml.Initializable;
+import javafx.scene.control.Button;
+import javafx.scene.control.ContentDisplay;
+import javafx.scene.control.ListView;
+import javafx.scene.control.Tab;
+import javafx.scene.control.TabPane;
+import javafx.scene.control.Tooltip;
+import javafx.scene.image.ImageView;
+import javafx.scene.layout.AnchorPane;
+import javafx.scene.layout.HBox;
+import javafx.util.Duration;
+
+public class PluginContainerController implements Initializable {
+
+    private final CoreContext core = CoreContext.getInstance();
+
+    public TabPane mainTabPane;
+    public AnchorPane mainAnchor;
+    public ListView<String> mainListView;
+    public HBox mainHBox;
+
+    /**
+     * Default constructor for PluginContainerController.
+     */
+    public PluginContainerController() {
+        // Default constructor
+    }
+
+    @Override
+    public void initialize(URL location, ResourceBundle resources) {
+        core.mainController = this;
+    }
+
+    public void showMessage(String message) {
+        mainListView.getItems().add(message);
+    }
+
+    public void updateUIforPlugin() {
+
+        PluginContainerApplication.pluginContainer.getDataServerPlugins().stream()
+                .sorted(Comparator.comparing(Plugin::getName))
+                .forEach(plugin -> {
+
+                    //Case the Plugin UI is displayed in a separate windows
+                    if (plugin.getInterfaceType() == PluginInterface.WINDOW) {
+                        ImageView imageView = new ImageView();
+                        imageView.setFitHeight(32);
+                        imageView.setFitWidth(32);
+                        imageView.setPickOnBounds(true);
+                        imageView.setPreserveRatio(true);
+                        imageView.setImage(plugin.getIcon());
+
+                        Button button = new Button();
+                        button.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
+                        button.getStyleClass().add("imagebutton");
+                        button.setMnemonicParsing(false);
+                        button.setOnAction(actionEvent -> plugin.showUI());
+                        button.setGraphic(imageView);
+                        button.setTooltip(new Tooltip(plugin.getName()));
+
+
+                        mainHBox.getChildren().add(button);
+
+                        plugin.getCommandProperty().addListener((observableValue, s, command) -> {
+                            switch (DataServerCommands.valueOf(command)) {
+                                case LOAD -> Platform.runLater(() -> {
+                                    core.mainController.showMessage("LOAD REQUESTED");
+                                    plugin.setSurvey(new CaveSurveyImpl());
+                                });
+                                case SAVE -> core.mainController.showMessage("SAVE REQUESTED");
+                                default -> { /* ignore other commands */ }
+                            }
+                        });
+                    }
+
+                    //Case the plugin is integrated in mainUI as Tab on the left Ariane panel
+                    if (plugin.getInterfaceType() == PluginInterface.LEFT_TAB) {
+                        Tab tab = new Tab(plugin.getName());
+                        tab.setContent(plugin.getUINode());
+                        mainTabPane.getTabs().add(tab);
+
+                        plugin.getCommandProperty().addListener((observableValue, s, command) -> {
+                            switch (DataServerCommands.valueOf(command)) {
+
+                                // ========================= TML COMMANDS ========================= //
+
+                                case LOAD -> Platform.runLater(() -> {
+                                    core.mainController.showMessage("LOAD REQUESTED");
+                                    PauseTransition pause = new PauseTransition(Duration.seconds(2));
+                                    pause.setOnFinished(e -> {
+                                        plugin.setSurvey(new CaveSurveyImpl());
+                                        File surveyFile = plugin.getSurveyFile();
+                                        core.mainController.showMessage(
+                                            surveyFile != null ? surveyFile.getName() : "(no file)");
+                                    });
+                                    pause.play();
+                                });
+
+                                case SAVE -> Platform.runLater(() -> {
+                                    core.mainController.showMessage("SAVE REQUESTED");
+                                    File surveyFile = plugin.getSurveyFile();
+                                    core.mainController.showMessage(
+                                        surveyFile != null ? surveyFile.getName() : "(no file)");
+                                
+                                });
+
+                                // ========================= AGR COMMANDS ========================= //
+
+                                case LOAD_AGR -> Platform.runLater(() -> {
+                                    core.mainController.showMessage("LOAD AGR REQUESTED");
+                                    PauseTransition pause = new PauseTransition(Duration.seconds(2));
+
+                                    pause.setOnFinished(e -> {
+                                        plugin.setAggregation(new AggregationImpl());
+                                        AggregationInterface aggregation = plugin.getAggregation();
+                                        File agrFile = aggregation != null ? aggregation.getFile() : null;
+                                        core.mainController.showMessage(
+                                            agrFile != null ? agrFile.getName() : "(no file)");
+                                    });
+                                    pause.play();                                
+                                });
+
+                                case SAVE_AGR -> Platform.runLater(() -> {
+                                    core.mainController.showMessage("SAVE AGR REQUESTED");
+                                    AggregationInterface aggregation = plugin.getAggregation();
+                                    File agrFile = aggregation != null ? aggregation.getFile() : null;
+                                    core.mainController.showMessage(
+                                        agrFile != null ? agrFile.getName() : "(no file)");
+                                
+                                });
+
+                                // ========================= REDRAW COMMANDS ========================= //
+                                
+                                case REDRAW -> Platform.runLater(() -> {
+                                    core.mainController.showMessage("REDRAW REQUESTED");
+                                });
+
+                                default -> { /* ignore other commands */ }
+                            }
+                        });
+                    }
+                });
+    }
+}
