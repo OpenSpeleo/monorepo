@@ -1,0 +1,221 @@
+@import 'maplibre-gl/dist/maplibre-gl.css';
+
+@import 'tailwindcss';
+
+.user-location-heading-marker {
+  width: 112px;
+  height: 112px;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.user-location-heading-rotation {
+  transform-box: view-box;
+  transform-origin: 56px 56px;
+  transition: transform 120ms linear;
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .user-location-heading-rotation {
+    transition: none;
+  }
+}
+
+/* Base styles */
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/*
+ * Tailwind preflight applies `padding: 0` to all elements (*), which loads
+ * after Ionic CSS and wins over shadow-DOM :host padding on custom elements.
+ */
+@layer base {
+  ion-list-header {
+    padding-inline-start: calc(var(--ion-safe-area-left, 0px) + 16px);
+    padding-inline-end: var(--ion-safe-area-right, 0px);
+    padding-bottom: 0.625rem;
+  }
+}
+
+/* Custom scrollbar for webkit browsers */
+@layer components {
+  ::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background-color: var(--color-slate-800);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background-color: var(--color-slate-600);
+    border-radius: 3px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: var(--color-slate-500);
+  }
+}
+
+/*
+ * Unlayered app chrome — must sit outside @layer so it wins over Tailwind v4
+ * preflight (`* { padding: 0; border-radius: 0 }`), which otherwise flattens
+ * native buttons and strips rounded corners.
+ */
+/*
+ * Settings rows: give every ion-item in the Settings page more vertical
+ * breathing room. Set the custom properties directly on the ion-item host so
+ * they win over Ionic's :host defaults (inheritance alone would not override
+ * a host-local default). See docs/settings.md.
+ */
+.settings-content ion-item {
+  --min-height: 52px;
+  --padding-top: 0px;
+  --padding-bottom: 0px;
+  --inner-padding-top: 0px;
+  --inner-padding-bottom: 0px;
+}
+
+/*
+ * Vertically center every row's content. The vertical rhythm comes solely from
+ * --min-height with zero top/bottom padding, so Ionic's native center alignment
+ * (`:host { align-items: center }`, inherited by .item-native / .item-inner)
+ * distributes the slack evenly above and below — no top-heavy rows. Custom
+ * top/bottom paddings are intentionally 0 because, when the content is taller
+ * than the padded box, they push content down and look top-heavy. These rules
+ * are unlayered so they win over Ionic; the explicit centering + zeroed label
+ * margins are belt-and-suspenders.
+ */
+.settings-content ion-item::part(native) {
+  align-items: center;
+}
+
+.settings-content ion-item ion-label {
+  margin-top: 0;
+  margin-bottom: 0;
+  align-self: center;
+}
+
+/*
+ * Synchronization list header (label + Resync button). The global
+ * `ion-list-header` rule only sets `padding-bottom` (Tailwind preflight zeroes
+ * `padding-top`), which left the Resync button flush against the top of the
+ * row. Restore symmetric vertical padding and center the row so the button is
+ * vertically centered. Unlayered so it wins over the @layer base rule.
+ */
+.settings-content ion-list-header {
+  align-items: center;
+  padding-top: 0.625rem;
+}
+
+/*
+ * Trim the Resync button height slightly vs the shared `.app-btn--compact`
+ * (2.5rem). Scoped + more specific (and unlayered) so it overrides the shared
+ * button sizing only here, without `!important`.
+ */
+.settings-content ion-list-header button.app-btn {
+  min-height: 2rem;
+  padding-top: 0.375rem;
+  padding-bottom: 0.375rem;
+}
+
+.app-tab-bar {
+  padding-top: 0.5rem;
+}
+
+.app-tab-bar__tab {
+  padding-bottom: 0.375rem;
+}
+
+/* Standard action button — matches Settings modal buttons (px-4 py-3 rounded-xl) */
+.app-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.75rem;
+  padding: 0.75rem 1rem;
+  font-size: 1rem;
+  font-weight: 500;
+  line-height: 1.25;
+  border-radius: 0.75rem;
+  transition:
+    color 0.15s ease,
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    opacity 0.15s ease;
+}
+
+/* Narrow panels (project bulk actions): slightly smaller label, same shape */
+.app-btn--compact {
+  min-height: 2.5rem;
+  padding: 0.625rem 0.875rem;
+  font-size: 0.875rem;
+}
+
+/*
+ * Button color variants — SOLID, unlayered backgrounds.
+ *
+ * WHY THIS EXISTS: every `.app-btn` MUST carry a color variant. Relying on
+ * Tailwind background *utilities* for the fill is fragile here for two reasons:
+ *  1. Tailwind v4 utilities live in `@layer utilities`; unlayered author rules
+ *     (like `.app-btn`) and preflight can win the cascade, dropping the fill.
+ *  2. Opacity-modified utilities (`bg-slate-800/70`) compile to
+ *     `color-mix(in oklab, …)`, which renders invisibly / not at all on older
+ *     Android WebViews — the button then looks like plain text with NO
+ *     background. This has bitten us repeatedly. See docs/coding-rules.md and
+ *     tasks/lessons/button-backgrounds.md.
+ *
+ * These variants use SOLID Tailwind theme tokens (`var(--color-*)`) in
+ * UNLAYERED CSS, so the fill always renders. Add layout-only utilities
+ * (`w-full`, `gap-2`, `mb-3`, …) alongside the variant as needed.
+ */
+.app-btn--primary {
+  background-color: var(--color-purple-600);
+  color: #fff;
+}
+.app-btn--primary:hover {
+  background-color: var(--color-purple-500);
+}
+
+.app-btn--secondary {
+  background-color: var(--color-slate-700);
+  color: var(--color-slate-100);
+  border: 1px solid var(--color-slate-600);
+}
+.app-btn--secondary:hover {
+  background-color: var(--color-slate-600);
+  color: #fff;
+}
+
+.app-btn--danger {
+  background-color: var(--color-red-600);
+  color: #fff;
+}
+.app-btn--danger:hover {
+  background-color: var(--color-red-500);
+}
+
+.app-btn--info {
+  background-color: var(--color-blue-600);
+  color: #fff;
+}
+.app-btn--info:hover {
+  background-color: var(--color-blue-500);
+}
+
+.app-btn--success {
+  background-color: var(--color-emerald-600);
+  color: #fff;
+}
+.app-btn--success:hover {
+  background-color: var(--color-emerald-500);
+}
+
+/* Shared disabled treatment for every variant. */
+.app-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
