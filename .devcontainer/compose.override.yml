@@ -1,0 +1,6 @@
+services:
+  django:
+    environment:
+      UV_PROJECT_ENVIRONMENT: /workspace/.venv-devcontainer
+    volumes:
+      - ../..:/workspace:z

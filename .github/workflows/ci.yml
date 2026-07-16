@@ -1,0 +1,126 @@
+name: Monorepo validation
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  orchestration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+      - name: Test root orchestration
+        run: npm run test:monorepo
+      - name: Validate committed configuration
+        run: |
+          node -e 'JSON.parse(require("node:fs").readFileSync(".monorepo/subtrees.json"))'
+          git diff --check
+
+  javascript:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install root npm workspace
+        run: npm ci
+      - name: Verify Capacitor dependencies remain app-local
+        run: test -d apps/mobile/node_modules/@capacitor/core
+      - name: Lint applications
+        run: npm run lint
+      - name: Build mobile and synchronize Capacitor projects
+        run: npm run build:mobile && npm run cap:sync
+      - name: Test applications
+        run: npm run test:mobile && npm run test:web
+      - name: Build applications
+        run: npm run build
+      - name: Ensure generated checks did not change tracked files
+        run: git diff --exit-code
+
+  rust:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Install Tauri system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y build-essential clang cmake libayatana-appindicator3-dev libclang-dev librsvg2-dev libssl-dev libwebkit2gtk-4.1-dev patchelf pkg-config
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy,rustfmt
+          targets: wasm32-unknown-unknown
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.14"
+          enable-cache: true
+      - name: Install Rust frontend tools
+        run: |
+          cargo install trunk --locked
+          cargo install tauri-cli --version '^2.0' --locked
+      - name: Check both Rust projects
+        run: make check-rust
+      - name: Build Compass web UI
+        run: make build-compass-ui
+      - name: Compile Compass Tauri application without bundles
+        run: make build-compass-tauri
+      - name: Build openspeleo_core Python extension
+        run: make build-core
+      - name: Ensure builds did not change tracked files
+        run: git diff --exit-code
+
+  ariane:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: gradle
+      - name: Build and test Ariane
+        working-directory: apps/ariane_plugin
+        run: ./gradlew build test --no-daemon
+      - name: Ensure Gradle did not change tracked files
+        run: git diff --exit-code
+
+  web-mypy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.14"
+          enable-cache: true
+      - name: Install apps/web local environment
+        run: |
+          cp apps/web/.envs/test.env.dist apps/web/.envs/test.env
+          uv sync --project apps/web --extra local --frozen
+      - name: Require dmypy and run the authoritative hook
+        env:
+          CI: "1"
+        run: |
+          export PATH="$PWD/apps/web/.venv/bin:$PATH"
+          command -v dmypy
+          bash scripts/run-precommit.sh apps/web:mypy --all-files
+      - name: Fail when hooks modify tracked files
+        run: git diff --exit-code

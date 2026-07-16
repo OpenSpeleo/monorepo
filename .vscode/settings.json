@@ -1,0 +1,18 @@
+{
+  "gradle.nestedProjects": [
+    "apps/ariane_plugin"
+  ],
+  "java.configuration.updateBuildConfiguration": "automatic",
+  "java.gradle.buildServer.enabled": "on",
+  "java.import.gradle.enabled": true,
+  "java.import.gradle.wrapper.enabled": true,
+  "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
+  "rust-analyzer.linkedProjects": [
+    "${workspaceFolder}/apps/compass_sidecar/Cargo.toml",
+    "${workspaceFolder}/packages/python/openspeleo_core/Cargo.toml"
+  ],
+  "rust-analyzer.cargo.features": "all",
+  "rust-analyzer.check.command": "clippy",
+  "rust-analyzer.check.allTargets": true,
+  "terminal.integrated.cwd": "${workspaceFolder}"
+}

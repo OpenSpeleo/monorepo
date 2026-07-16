@@ -1,105 +1,48 @@
-[build-system]
-requires = ["flit_core >=3.12.0,<4"]
-build-backend = "flit_core.buildapi"
-
-[tool.uv]
-package = true
-
 [dependency-groups]
 dev = [
+    "maturin>=1.9,<2",
     "prek>=0.4,<0.5",
-    "ruff>=0.15.10,<0.16",
-    "flit>=3.12,<4",
-    # File encryption/decryption
-    "python-dotenv>=1.2.2,<2.0.0",
-    "cryptography>=49.0.0,<50.0.0",
+    "ruff>=0.15,<1.0",
+    "twine",
+    "tox",
+    "wheel>=0.45",
 ]
+
+[tool.uv]
+package = false
+
+[tool.uv.sources]
+ariane_lib = { path = "./packages/python/ariane_lib/", editable = true }
+compass_lib = { path = "./packages/python/compass_lib/", editable = true }
+mnemo_lib = { path = "./packages/python/mnemo_lib/", editable = true }
+openspeleo_core = { path = "./packages/python/openspeleo_core/", editable = true }
+openspeleo_lib = { path = "./packages/python/openspeleo_lib/", editable = true }
 
 [project]
-name = "compass_lib"
-readme = "README.md"
-requires-python = ">=3.11"
-license = { file = "LICENSE" }
-keywords = ["cave", "survey", "karst"]
+name = "SpeleoLibs_Monorepo"
+version = "1.0.0"
 authors = [{ name = "Jonathan Dekhtiar", email = "jonathan@dekhtiar.com" }]
-maintainers = [{ name = "Jonathan Dekhtiar", email = "jonathan@dekhtiar.com" }]
-classifiers = [
-    # How mature is this project? Common values are
-    #   3 - Alpha
-    #   4 - Beta
-    #   5 - Production/Stable
-    "Development Status :: 3 - Alpha",
-
-    # Indicate who your project is intended for
-    "Intended Audience :: Developers",
-    "Intended Audience :: Science/Research",
-    "Intended Audience :: Information Technology",
-    "Topic :: Software Development :: Build Tools",
-    "Topic :: Scientific/Engineering",
-    "Topic :: Software Development :: Libraries",
-    "Topic :: Utilities",
-
-    # Pick your license as you wish
-    "License :: OSI Approved :: Apache Software License",
-
-    # Not OS Specific
-    "Operating System :: OS Independent",
-
-    # Specify the Python versions you support here. In particular, ensure
-    # that you indicate you support Python 3. These classifiers are *not*
-    # checked by "pip install". See instead "requires-python" key in this file.
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3 :: Only",
-]
+readme = "README.md"
 dependencies = [
-    "geojson>=3.2,<4",
-    "numpy>=2.4.4,<3",
-    "scipy>=1.17.1,<2",
-    "orjson>=3.11.8,<3.12",
-    "pydantic>=2.13.1,<2.14",
-    "pydantic-extra-types>=2.11.1,<3.0",
-    "pyIGRF14==1.0.4",
-    "pyproj>=3.7.2,<3.8",
-    "shapely>=2.1.2,<3",
-    "utm>=0.8.1,<0.9",
+    # "flit>=3.12,<4",
+    # "maturin[patchelf]>=1.14.1",
+    # File encryption/decryption
+    # "python-dotenv>=1.2.2,<2.0.0",
+    # "cryptography>=46.0.7,<50.0.0",
+    # Projects
+    "ariane_lib[test]",
+    "compass_lib[test]",
+    "mnemo_lib[test]",
+    "openspeleo_core[legacy,test,benchmark]",
+    "openspeleo_lib[test]",
 ]
-dynamic = ["description", "version"]
+requires-python = ">=3.11"
 
 [project.optional-dependencies]
-test = [
-    # File encryption/decryption
-    "cryptography>=49.0.0,<50.0.0",
-    "python-dotenv>=1.2.2,<2.0.0",
-    # Testing
-    "deepdiff>=7.0,<10.0",
-    "pytest>=9.0.3,<10.0.0",
-    "pytest-cov>=7.1.0,<8.0.0",
-    "pytest-env>=1.6.0,<2.0.0",
-    "pytest-runner>=6.0.1,<7.0.0",
-    "pytest-ordering>=0.6,<1.0.0",
-    "parameterized>=0.9.0,<0.10",
+benchmark = [
+    # Benchmarking
+    "pyinstrument>=5.1.2,<6.0",
 ]
-
-[project.urls]
-"Homepage" = "https://pypi.org/project/compass-lib/"
-"Bug Reports" = "https://github.com/OpenSpeleo/pytool_compass_lib/issues"
-"Source" = "https://github.com/OpenSpeleo/pytool_compass_lib"
-
-[project.scripts]
-compass = "compass_lib.commands.main:main"
-
-[project.entry-points."compass_lib.actions"]
-encrypt = "compass_lib.commands.encrypt:encrypt"
-convert = "compass_lib.commands.convert:convert"
-geojson = "compass_lib.commands.geojson:geojson"
-
-[tool.pytest.ini_options]
-testpaths = ["tests/"]
-addopts = "-vvv --cov=compass_lib --cov-report=term-missing"
-# addopts = "-vvv --cov=compass_lib --cov-report=term-missing --capture=no"
-
-[tool.pytest_env]
-env_files = [".env"]
 
 [tool.isort]
 profile = "black"
@@ -130,6 +73,7 @@ exclude = [
     "venv",
     "*/migrations/*.py",
     "staticfiles/*",
+    "openspeleo_core/src_python/openspeleo_core/_rust_lib",
 ]
 # Same as Django: https://github.com/cookiecutter/cookiecutter-django/issues/4792.
 line-length = 88
@@ -217,24 +161,24 @@ ignore = [
     "TRY003", # Checks for long exception messages that are not defined in the exception
     # class itself.
     "UP009",   # Checks for unnecessary UTF-8 encoding declarations.
-    "C901",    # Checks for function definitions that include too many statements.
-    "PLR0912", # Checks for functions or methods with too many branches, including (nested) if,
-    # elif, and else branches, for loops, try-except clauses, and match and case statements.
-    "PLR0915", # Checks for functions or methods with too many statements.
+    "PLR0912", # Checks for functions or methods with too many branches, including (nested)
+    # if, elif, and else branches, for loops, try-except clauses, and match and case statements.
+    "C901", # Checks for functions with a high McCabe complexity.
 ]
 # Allow fix for all enabled rules (when `--fix`) is provided.
 fixable = ["ALL"]
 unfixable = []
+# The fixes in extend-unsafe-fixes will require
+# provide the `--unsafe-fixes` flag when fixing.
+extend-unsafe-fixes = []
 # Allow unused variables when underscore-prefixed.
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
-exclude = ["flit/**/*.py"]
 
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"
 skip-magic-trailing-comma = false
 line-ending = "auto"
-exclude = ["flit/**/*.py"]
 
 [tool.ruff.lint.isort]
 force-single-line = true

@@ -6,7 +6,7 @@ build-backend = "flit_core.buildapi"
 package = true
 
 [dependency-groups]
-dev = ["prek>=0.3.9,<0.4", "ruff>=0.15.10,<0.16", "flit>=3.12,<4"]
+dev = ["prek>=0.4,<0.5", "ruff>=0.15.10,<0.16", "flit>=3.12,<4"]
 
 [project]
 name = "ariane_lib"

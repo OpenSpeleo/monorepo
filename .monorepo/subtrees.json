@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "subtrees": [
+    {
+      "id": "mobile",
+      "prefix": "apps/mobile",
+      "remote": "apps/mobile",
+      "url": "git@github.com:OpenSpeleo/SpeleoDB-App.git",
+      "baseBranch": "main"
+    },
+    {
+      "id": "web",
+      "prefix": "apps/web",
+      "remote": "apps/web",
+      "url": "git@github.com:OpenSpeleo/SpeleoDB.git",
+      "baseBranch": "master"
+    },
+    {
+      "id": "compass_sidecar",
+      "prefix": "apps/compass_sidecar",
+      "remote": "apps/compass_sidecar",
+      "url": "git@github.com:OpenSpeleo/speleodb_compass_sidecar.git",
+      "baseBranch": "main"
+    },
+    {
+      "id": "ariane_plugin",
+      "prefix": "apps/ariane_plugin",
+      "remote": "apps/ariane_plugin",
+      "url": "https://github.com/OpenSpeleo/SpeleoDB-Ariane-Plugin",
+      "baseBranch": "master"
+    },
+    {
+      "id": "ariane_lib",
+      "prefix": "packages/python/ariane_lib",
+      "remote": "packages/python/ariane_lib",
+      "url": "git@github.com:OpenSpeleo/pytool_ariane_lib.git",
+      "baseBranch": "master"
+    },
+    {
+      "id": "compass_lib",
+      "prefix": "packages/python/compass_lib",
+      "remote": "packages/python/compass_lib",
+      "url": "git@github.com:OpenSpeleo/pytool_compass_lib.git",
+      "baseBranch": "master"
+    },
+    {
+      "id": "mnemo_lib",
+      "prefix": "packages/python/mnemo_lib",
+      "remote": "packages/python/mnemo_lib",
+      "url": "git@github.com:OpenSpeleo/pytool_mnemo_lib.git",
+      "baseBranch": "master"
+    },
+    {
+      "id": "openspeleo_core",
+      "prefix": "packages/python/openspeleo_core",
+      "remote": "packages/python/openspeleo_core",
+      "url": "git@github.com:OpenSpeleo/openspeleo_core.git",
+      "baseBranch": "master"
+    },
+    {
+      "id": "openspeleo_lib",
+      "prefix": "packages/python/openspeleo_lib",
+      "remote": "packages/python/openspeleo_lib",
+      "url": "git@github.com:OpenSpeleo/pytool_openspeleo_lib.git",
+      "baseBranch": "master"
+    }
+  ]
+}
