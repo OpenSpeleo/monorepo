@@ -6,7 +6,7 @@ Short instructions
 python demo.py
 ```
 
---------------------
+---
 
 ## Conversion commands:
 
