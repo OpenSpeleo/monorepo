@@ -1,8 +1,11 @@
 SHELL := /bin/bash
 
 SUBTREE_FLAG = $(if $(strip $(SUBTREE)),--subtree $(SUBTREE),)
+STACK ?= speleodb_fresh
+ROOT_PYTHON ?= 3.14
 
-.PHONY: setup doctor pre-commit dev-web install-js install-python \
+.PHONY: setup doctor pre-commit dev-web dev-web-isolated stop-web-isolated \
+	install-js install-python \
 	build-web build-mobile sync-mobile check-rust build-compass-ui \
 	build-compass-tauri build-core build-ariane test-monorepo \
 	subtree-status subtree-pull subtree-push subtree-push-execute \
@@ -12,7 +15,7 @@ setup:
 	node tools/subtree.mjs setup
 	@test -f apps/web/.envs/test.env || cp apps/web/.envs/test.env.dist apps/web/.envs/test.env
 	npm ci
-	UV_PROJECT_ENVIRONMENT="$${UV_PROJECT_ENVIRONMENT:-$(CURDIR)/.venv}" uv sync --all-extras
+	UV_PROJECT_ENVIRONMENT="$${UV_PROJECT_ENVIRONMENT:-$(CURDIR)/.venv}" uv sync --python $(ROOT_PYTHON) --all-extras --frozen
 
 doctor:
 	node tools/subtree.mjs doctor
@@ -23,11 +26,19 @@ pre-commit:
 dev-web:
 	@if [[ -x /start && -d /app ]]; then cd /app && exec /start; else cd apps/web && docker compose -f local.yml up django-webserver; fi
 
+dev-web-isolated:
+	@[[ "$(STACK)" =~ ^[a-zA-Z0-9][a-zA-Z0-9_.-]*$$ ]] || { echo "Invalid STACK: $(STACK)" >&2; exit 2; }
+	COMPOSE_INSTANCE_PREFIX="$(STACK)" docker compose -p "$(STACK)" -f apps/web/local.yml up --build django-webserver
+
+stop-web-isolated:
+	@[[ "$(STACK)" =~ ^[a-zA-Z0-9][a-zA-Z0-9_.-]*$$ ]] || { echo "Invalid STACK: $(STACK)" >&2; exit 2; }
+	COMPOSE_INSTANCE_PREFIX="$(STACK)" docker compose -p "$(STACK)" -f apps/web/local.yml down
+
 install-js:
 	npm ci
 
 install-python:
-	UV_PROJECT_ENVIRONMENT="$${UV_PROJECT_ENVIRONMENT:-$(CURDIR)/.venv}" uv sync --all-extras
+	UV_PROJECT_ENVIRONMENT="$${UV_PROJECT_ENVIRONMENT:-$(CURDIR)/.venv}" uv sync --python $(ROOT_PYTHON) --all-extras --frozen
 
 build-web:
 	npm run build:web

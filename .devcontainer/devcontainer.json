@@ -1,5 +1,5 @@
 {
-  "name": "SpeleoDB monorepo",
+  "name": "SpeleoDB web (monorepo)",
   "dockerComposeFile": [
     "../apps/web/local.yml",
     "compose.override.yml"
@@ -9,48 +9,22 @@
   "remoteUser": "dev-user",
   "init": true,
   "overrideCommand": false,
-  "features": {
-    "ghcr.io/devcontainers/features/java:1": {
-      "version": "25",
-      "installGradle": "false"
-    },
-    "ghcr.io/devcontainers/features/rust:1": {
-      "version": "stable",
-      "profile": "minimal",
-      "targets": "wasm32-unknown-unknown"
-    }
-  },
-  "forwardPorts": [
-    8000,
-    8100,
-    1420
-  ],
+  "forwardPorts": [8000],
   "portsAttributes": {
     "8000": {
       "label": "SpeleoDB Django",
-      "onAutoForward": "notify"
-    },
-    "8100": {
-      "label": "SpeleoDB mobile Vite/WebNative",
-      "onAutoForward": "notify"
-    },
-    "1420": {
-      "label": "Compass Trunk",
-      "onAutoForward": "notify"
+      "onAutoForward": "notify",
+      "elevateIfNeeded": false,
+      "requireLocalPort": false,
+      "protocol": "http"
     }
   },
   "customizations": {
     "vscode": {
       "settings": {
-        "python.defaultInterpreterPath": "/workspace/.venv-devcontainer/bin/python"
+        "python.defaultInterpreterPath": "/opt/speleodb-venv/bin/python"
       },
       "extensions": [
-        "Webnative.webnative",
-        "redhat.java",
-        "vscjava.vscode-java-pack",
-        "vscjava.vscode-gradle",
-        "rust-lang.rust-analyzer",
-        "tauri-apps.tauri-vscode",
         "ms-python.python",
         "charliermarsh.ruff",
         "ms-azuretools.vscode-docker",

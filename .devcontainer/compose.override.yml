@@ -1,6 +1,66 @@
+volumes:
+  speleodb_local_web_node_modules:
+    name: "${COMPOSE_INSTANCE_PREFIX:-speleodb_devcontainer}_local_web_node_modules"
+  speleodb_local_monorepo_python_build_cache: {}
+
 services:
   django:
-    environment:
-      UV_PROJECT_ENVIRONMENT: /workspace/.venv-devcontainer
+    user: dev-user
+    build:
+      args:
+        DOCKER_INCLUDE_MONOREPO_RUST_TOOLCHAIN: "1"
+    container_name: "${COMPOSE_INSTANCE_PREFIX:-speleodb_devcontainer}_local_django"
+    environment: &monorepo_python_environment
+      CARGO_HOME: /monorepo-python-build-cache/cargo
+      CARGO_TARGET_DIR: /monorepo-python-build-cache/openspeleo-core-target
+      PYTHONPATH: "/workspace/packages/python/openspeleo_core/src_python:/workspace/packages/python/mnemo_lib:/workspace/packages/python/compass_lib:/workspace/packages/python/openspeleo_lib"
+      RUSTUP_TOOLCHAIN: stable
+      UV_CACHE_DIR: /monorepo-python-build-cache/uv
     volumes:
       - ../..:/workspace:z
+      - speleodb_local_web_node_modules:/workspace/apps/web/node_modules
+      - speleodb_local_monorepo_python_build_cache:/monorepo-python-build-cache
+
+  postgres:
+    container_name: "${COMPOSE_INSTANCE_PREFIX:-speleodb_devcontainer}_local_postgres"
+
+  redis:
+    container_name: "${COMPOSE_INSTANCE_PREFIX:-speleodb_devcontainer}_local_redis"
+
+  django-webserver:
+    user: dev-user
+    build:
+      args:
+        DOCKER_INCLUDE_MONOREPO_RUST_TOOLCHAIN: "1"
+    container_name: "${COMPOSE_INSTANCE_PREFIX:-speleodb_devcontainer}_local_django_webserver"
+    environment: *monorepo_python_environment
+    volumes:
+      - ../..:/workspace:z
+      - speleodb_local_web_node_modules:/workspace/apps/web/node_modules
+      - speleodb_local_monorepo_python_build_cache:/monorepo-python-build-cache
+    command:
+      - /bin/bash
+      - -c
+      - /workspace/.devcontainer/prepare-web-node-modules.sh && /workspace/.devcontainer/sync-openspeleo-core.sh && exec /start
+
+  gitlab:
+    container_name: "${COMPOSE_INSTANCE_PREFIX:-speleodb_devcontainer}_gitlab_lab"
+
+  rustfs:
+    container_name: "${COMPOSE_INSTANCE_PREFIX:-speleodb_devcontainer}_rustfs"
+
+  setup:
+    user: root
+    build:
+      args:
+        DOCKER_INCLUDE_MONOREPO_RUST_TOOLCHAIN: "1"
+    container_name: "${COMPOSE_INSTANCE_PREFIX:-speleodb_devcontainer}_local_setup"
+    environment: *monorepo_python_environment
+    volumes:
+      - ../..:/workspace:z
+      - speleodb_local_web_node_modules:/workspace/apps/web/node_modules
+      - speleodb_local_monorepo_python_build_cache:/monorepo-python-build-cache
+    command:
+      - /bin/bash
+      - -c
+      - /workspace/.devcontainer/prepare-web-node-modules.sh && /workspace/.devcontainer/sync-openspeleo-core.sh && exec /app/compose/setup

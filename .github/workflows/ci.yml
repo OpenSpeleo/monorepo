@@ -111,6 +111,8 @@ jobs:
         with:
           python-version: "3.14"
           enable-cache: true
+      - name: Validate root Python integration lock
+        run: uv lock --check
       - name: Install apps/web local environment
         run: |
           cp apps/web/.envs/test.env.dist apps/web/.envs/test.env
