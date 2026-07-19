@@ -62,13 +62,14 @@ standalone repositories or their release pipelines.
 | `Makefile`                           | Canonical developer commands                                                       |
 | `package.json` / `package-lock.json` | Root npm workspace and integrated JavaScript lock                                  |
 | `.npmrc`                             | Nested npm installation strategy                                                   |
-| `pyproject.toml` / `uv.lock`         | Root Python integration project using editable path sources and its lock           |
+| `pyproject.toml` / `uv.lock`         | Python 3.14 integration environment for virtual web plus editable shared libraries |
 | `rust-toolchain.toml`                | Shared Rust channel, components, and WebAssembly target                            |
 | `.vscode/`                           | Root editor recommendations and language-server settings                           |
-| `.devcontainer/`                     | Monorepo devcontainer layered on `apps/web/local.yml`                              |
+| `.devcontainer/`                     | Web-only devcontainer layered on `apps/web/local.yml`                              |
 | `.github/workflows/ci.yml`           | Root integration-only CI                                                           |
 | `.gitmodules`                        | Fully prefixed paths for Ariane's two nested API gitlinks                          |
 | `.pre-commit-config.yaml`            | Root-only sanity and Markdown checks plus the prek workspace anchor                |
+| `.prekignore`                        | Root prek discovery exclusions for Mobile, Ariane, and Compass                     |
 | `scripts/run-precommit.sh`           | Explicit prek launcher with local/CI mypy policy                                   |
 
 `.monorepo/` is not a second repository, a cache, or generated state. It is a
@@ -101,7 +102,7 @@ prefixes shown below.
 | Node.js    | Node 22; `.node-version` contains `22`, and the root package requires at least 22.12   |
 | npm        | Installed with Node and capable of npm workspaces                                      |
 | uv         | Python environment, project, and lock manager                                          |
-| Python     | At least 3.11 for the root integration project; Python 3.14 for `apps/web`             |
+| Python     | Python 3.14 for the root integration project and `apps/web`                            |
 | Rust       | Stable; the committed toolchain adds `rustfmt`, `clippy`, and `wasm32-unknown-unknown` |
 | Java       | JDK 25 for Ariane                                                                      |
 | GitHub CLI | Optional; required only by `make subtree-pr`                                           |
@@ -133,8 +134,9 @@ If the clone already exists, the same two Make targets are sufficient.
 5. Creates ignored `apps/web/.envs/test.env` from `apps/web/.envs/test.env.dist`
    when it does not exist.
 6. Runs root `npm ci`.
-7. Runs root `uv sync --all-extras` into `.venv`, or into the environment named
-   by `UV_PROJECT_ENVIRONMENT`.
+7. Runs the frozen root Python 3.14 integration lock into `.venv`, or into the
+   environment named by `UV_PROJECT_ENVIRONMENT`. This includes the virtual web
+   application's local dependencies and all editable shared packages.
 
 `make setup` does **not** install a Git hook, change `core.hooksPath`, commit,
 pull subtree history, push anything, or deploy anything.
@@ -154,22 +156,24 @@ pull subtree history, push anything, or deploy anything.
 | -------------------- | --------------------------------------------------------------------- |
 | `make setup`         | Configure remotes/submodules and install the root npm/uv environments |
 | `make doctor`        | Validate tools, remotes, prefixes, and submodules                     |
-| `make pre-commit`    | Explicitly run all discovered prek projects; no hook is installed     |
+| `make pre-commit`    | Run root-discovered prek projects except Mobile, Ariane, and Compass  |
 | `make test-monorepo` | Run the root Node orchestration and launcher tests                    |
 
 ### Application and package builds
 
-| Command                    | Effect                                                                                                         |
-| -------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| `make dev-web`             | In the container, run `/start` from `/app`; on the host, start `django-webserver` through `apps/web/local.yml` |
-| `make build-web`           | Build the web Vite assets through the root npm workspace                                                       |
-| `make build-mobile`        | Type-check and build the mobile Vite application                                                               |
-| `make sync-mobile`         | Run Capacitor sync from the mobile workspace                                                                   |
-| `make check-rust`          | Cargo-check Compass and `openspeleo_core`, all targets and features, with locks                                |
-| `make build-compass-ui`    | Build the Compass Trunk frontend in release mode                                                               |
-| `make build-compass-tauri` | Compile the Compass Tauri application in release mode without bundling                                         |
-| `make build-core`          | Build the `openspeleo_core` Python wheel with maturin                                                          |
-| `make build-ariane`        | Run Ariane's Gradle `build test` tasks                                                                         |
+| Command                                       | Effect                                                                                                         |
+| --------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `make dev-web`                                | In the container, run `/start` from `/app`; on the host, start `django-webserver` through `apps/web/local.yml` |
+| `make dev-web-isolated STACK=speleodb_fresh`  | Build and start a fresh project-prefixed web stack without using existing volumes                              |
+| `make stop-web-isolated STACK=speleodb_fresh` | Stop that isolated stack while preserving all of its volumes                                                   |
+| `make build-web`                              | Build the web Vite assets through the root npm workspace                                                       |
+| `make build-mobile`                           | Type-check and build the mobile Vite application                                                               |
+| `make sync-mobile`                            | Run Capacitor sync from the mobile workspace                                                                   |
+| `make check-rust`                             | Cargo-check Compass and `openspeleo_core`, all targets and features, with locks                                |
+| `make build-compass-ui`                       | Build the Compass Trunk frontend in release mode                                                               |
+| `make build-compass-tauri`                    | Compile the Compass Tauri application in release mode without bundling                                         |
+| `make build-core`                             | Build the `openspeleo_core` Python wheel with maturin                                                          |
+| `make build-ariane`                           | Run Ariane's Gradle `build test` tasks                                                                         |
 
 ### Subtree operations
 
@@ -306,8 +310,11 @@ node --test tools/precommit-launcher.test.mjs
 The test creates temporary fake `prek` and `dmypy` executables and invokes
 `scripts/run-precommit.sh`. It covers local missing-`dmypy` skip reporting,
 selecting only the skipped hook, local installed-`dmypy` execution, CI failure
-without `dmypy`, and CI execution with it. It installs no hook and does not run
-the real nested project hooks.
+without `dmypy`, CI execution with it, and the committed Mobile/Ariane/Compass
+discovery boundary. It also locks the shared Linux `node_modules` mount used by
+workspace web hooks, the virtual-web root lock contract, and the devcontainer's
+live Python source overlay. It installs no hook and does not run real project
+hooks.
 
 Run every file under `tools/` that has the `.test.mjs` suffix with either:
 
@@ -622,20 +629,40 @@ npm run install:web
 
 ## Python integration project
 
-The root uv project is deliberately **not** a uv workspace. It depends on the
-five `packages/python/*` projects through editable path sources in
-`[tool.uv.sources]`. This preserves the ability to enter any package directory
-and run its standalone `uv lock` without uv redirecting to a parent workspace.
+The root uv project is deliberately **not** a uv workspace. It requires Python
+3.14 and combines two integration roles:
+
+- all five `packages/python/*` projects are editable path dependencies;
+- `apps/web` is a virtual path dependency with its `local` extra enabled.
+
+Virtual means uv installs the web dependency graph but does not attempt to
+package the Django application. Run the application directly from `apps/web`;
+edits to the application are therefore live. The four web dependencies
+`mnemo-lib`, `compass-lib`, `openspeleo-lib`, and `openspeleo-core` resolve to
+the root's editable sources, so edits below `packages/python/*` are also live.
+Maturin builds the native `openspeleo_core._rust_lib` module with Cargo's `dev`
+profile.
+
+This preserves the ability to enter any package directory and run its standalone
+`uv lock` without uv redirecting to a parent workspace.
 
 The root `uv.lock` remains the integrated lock for exercising the packages
 together, and root `.venv` is the default integration environment.
 
-Install or refresh it with:
+Install it with:
 
 ```bash
 make install-python
 # Equivalent:
-uv sync --all-extras
+UV_PROJECT_ENVIRONMENT=.venv uv sync --python 3.14 --all-extras --frozen
+```
+
+To run SpeleoDB from the root integration environment on the host:
+
+```bash
+source .venv/bin/activate
+cd apps/web
+python manage.py runserver
 ```
 
 Each Python subtree retains its own `pyproject.toml` and `uv.lock` for
@@ -651,8 +678,9 @@ uv lock
 uv sync --all-extras --frozen
 ```
 
-`apps/web` is also independent of the root uv project. It requires Python 3.14
-and has its own application environment and lock:
+`apps/web` still owns an independent standalone project and lock. Neither file
+contains a path back to `packages/python`, so extraction continues to resolve
+the published versions from PyPI:
 
 ```bash
 cd apps/web
@@ -727,8 +755,10 @@ Root settings provide:
 - host Python interpreter `${workspaceFolder}/.venv/bin/python`;
 - terminal startup at the monorepo root.
 
-Inside the devcontainer, the Python interpreter is overridden to
-`/workspace/.venv-devcontainer/bin/python`.
+Inside the web devcontainer, Python comes from the image-owned virtual
+environment at `/opt/speleodb-venv/bin/python`. The environment lives outside
+the `/app` bind mount, so opening the container cannot create a Linux virtual
+environment in the host checkout.
 
 ## Devcontainer operation
 
@@ -739,6 +769,7 @@ not duplicate the web application's container definition.
 
 - Base Compose file: `apps/web/local.yml`
 - Override: `.devcontainer/compose.override.yml`
+- Zed compatibility link: `.devcontainer/compose` points to `apps/web/compose`
 - VS Code service: `django`
 - Root workspace: `/workspace`
 - Standalone web mount: `/app`
@@ -750,32 +781,185 @@ The two mounts are intentional. Root tooling operates from `/workspace`, while
 the existing web image and scripts continue to see the web application at
 `/app`, exactly as in its standalone repository.
 
+The `django`, `django-webserver`, and one-shot `setup` services also receive the
+monorepo at `/workspace`. Their `PYTHONPATH` places these live source roots
+ahead of the published packages installed in the standalone image:
+
+- `/workspace/packages/python/mnemo_lib`
+- `/workspace/packages/python/compass_lib`
+- `/workspace/packages/python/openspeleo_lib`
+- `/workspace/packages/python/openspeleo_core/src_python`
+
+The first three are direct source overlays and need no installation. The
+PyO3-backed `openspeleo_core` additionally receives a monorepo-only PEP 660
+editable install because Linux must compile its own native extension. The
+standalone image still resolves the published wheel and remains Rust-free by
+default; `.devcontainer/compose.override.yml` opts into the Rust toolchain only
+for monorepo containers.
+
+The opt-in toolchain layer appears before the Dockerfile's Python dependency
+layer, so web dependency changes reuse the Rust layer. Maturin explicitly uses
+the Cargo `dev` profile for editable builds. The core project's uv cache keys
+include `pyproject.toml`, `Cargo.toml`, `Cargo.lock`, and every path below
+`src_rust`; unchanged native sources reuse uv's cached build. Cargo, uv, and
+native build artifacts use the project-scoped
+`speleodb_local_monorepo_python_build_cache` volume instead of host caches. The
+uv cache remains a real directory at `/monorepo-python-build-cache/uv` inside
+that volume; Cargo uses sibling directories. The helper performs a versioned,
+one-time ownership migration of an empty or legacy volume, then drops from root
+to `dev-user` before invoking uv or Cargo. All later cache and virtual-
+environment writes therefore use the same unprivileged account as prek and the
+interactive terminal. Standalone web containers retain their separate runtime
+cache directory at `/app/.uv/cache`.
+
+The compatibility link exists for Zed 0.233.x's native devcontainer parser,
+which resolves a Compose service's relative Dockerfile from the directory that
+contains `devcontainer.json` instead of from the Compose build context. The link
+keeps `apps/web/compose/Dockerfile` authoritative without duplicating it. Do not
+replace the link with a copied Dockerfile; remove it only after the supported
+Zed stable release correctly resolves Compose Dockerfile paths.
+
+The root override gives every service a `speleodb_devcontainer_*` container name
+by default. This is separate from the standalone file's `speleodb_*` default, so
+stopped standalone containers can remain preserved while VS Code creates its
+`web` Compose project. Set `COMPOSE_INSTANCE_PREFIX` before invoking the Dev
+Containers CLI only when a different devcontainer prefix is required.
+
+Compose overlays `/app/node_modules` with a devcontainer-specific named volume,
+`speleodb_devcontainer_local_web_node_modules` by default. Its name follows
+`COMPOSE_INSTANCE_PREFIX`, so it never aliases the standalone Compose volume.
+Linux native npm packages installed by `/start` therefore cannot overwrite a
+macOS or Windows host installation or inherit root ownership from a standalone
+webserver.
+
+That same volume is mounted at `/workspace/apps/web/node_modules` in all three
+monorepo application services. Prek executes the web project from the monorepo
+path, so both paths must resolve to the same Linux dependencies. The setup job
+initializes an empty or legacy volume for `dev-user`; the workspace and
+webserver then run as `dev-user`, ensuring npm, Vite, prek, and editor terminals
+share one ownership contract. The initialization checks the volume root first,
+so a correctly owned dependency tree is not recursively scanned on every
+startup.
+
+### Automatic local-service setup
+
+Both the `django` workspace and `django-webserver` wait for the one-shot `setup`
+service. That job starts only after PostgreSQL, Redis, and RustFS pass their
+health checks and GitLab passes `/-/readiness?all=1`. GitLab can take many
+minutes on its first boot; the application containers remain pending rather than
+starting with incomplete dependencies.
+
+Before the application setup begins, `.devcontainer/sync-openspeleo-core.sh`
+synchronizes the core package into `/opt/speleodb-venv` with
+`uv sync --inexact`. The virtual environment is created with the image, remains
+outside the application bind mount, and is writable by `dev-user`. The sync
+preserves the web dependency graph, writes the platform-specific extension
+beside the bind-mounted Python source, and verifies that both import origins are
+below the monorepo package. The setup job is otherwise idempotent:
+
+1. copy `apps/web/.env.dist` to the ignored `apps/web/.env` when the private
+   file does not exist, without overwriting developer changes on later runs;
+2. use the existing `python-gitlab` dependency to create or retrieve the local
+   `speleodb` GitLab group;
+3. read its real group ID rather than assuming one;
+4. disable access-token expiration enforcement in the local GitLab instance,
+   validate the existing non-expiring group token, and replace it when it is
+   missing, invalid, or still has an expiration date;
+5. populate the generated GitLab values and development RustFS bucket name in
+   `apps/web/.env`, which Django already reads;
+6. run Django's `create_s3_local_buckets` command to create both canonical
+   buckets and apply their local policy/CORS configuration;
+7. apply Django migrations;
+8. create or repair the local superuser `contact@speleodb.org` with password
+   `contact`, country USA (stored as `US`), full staff/superuser privileges, and
+   a verified primary email.
+
+The superuser command is restricted to `DEBUG` settings. It deliberately uses
+`set_password` directly so local password validators do not reject the fixed
+development credential. Repeated setup runs repair its country, flags, password,
+and allauth email verification without creating duplicate users or email
+records.
+
+The GitLab root credentials, local bootstrap token, RustFS access key/secret,
+and placeholder Mapbox token are fixed development-only values in Compose. The
+generated GitLab group token is private and is never committed. Resetting a
+GitLab or RustFS volume is recovered on the next Compose start.
+
+### Isolated fresh Compose stack
+
+Docker does not support renaming a volume in place. Compose project names solve
+the problem safely: every project receives a separate set of prefixed volumes.
+The container names in `apps/web/local.yml` also accept
+`COMPOSE_INSTANCE_PREFIX`, avoiding collisions with stopped containers from the
+normal stack.
+
+Run a complete stack against new, empty volumes while preserving the old stack:
+
+```bash
+make dev-web-isolated STACK=speleodb_fresh
+```
+
+The standard host ports must be free, so stop the old stack first, but do not
+remove it. The command creates volumes such as
+`speleodb_fresh_speleodb_local_postgres_data` and
+`speleodb_fresh_local_web_node_modules`; it never reads, renames, or deletes
+volumes owned by another Compose project or devcontainer prefix.
+
+On Linux, the preserved host-network configuration exposes Django directly on
+port 8000. On Docker Desktop, this requires Docker's host-networking support; if
+that feature is disabled, use the devcontainer's VS Code port forwarding. An
+inside-container health check remains available at `/api/health/details/`.
+
+Stop the isolated containers while retaining their new volumes:
+
+```bash
+make stop-web-isolated STACK=speleodb_fresh
+```
+
+Do not add `--volumes` when the isolated data should be retained. The private
+`apps/web/.env` is shared by the source checkout; the idempotent setup job
+revalidates and refreshes its generated GitLab values when switching stacks.
+
 ### Container provisioning
 
-Devcontainer features install Java 25 and stable Rust. Feature resolutions are
-pinned in `.devcontainer/devcontainer-lock.json`.
+The root devcontainer starts only the web application. The existing
+`apps/web/compose/Dockerfile` installs Python, Node, and the web application's
+dependencies. Its monorepo-only build argument additionally installs the minimal
+stable Rust toolchain required by the web application's editable
+`openspeleo_core` dependency; it does not install Compass, Tauri, Trunk,
+wasm-pack, Java, or mobile tooling. The Compose `setup` service prepares that
+native dependency before web infrastructure, migrations, buckets, GitLab
+provisioning, and local-superuser initialization.
 
-The idempotent post-create script then:
+Post-create adds `/app/.devcontainer/bashrc.override.sh` to the remote user's
+shell configuration idempotently, installs `openspeleo_core` as editable into
+the workspace container using the cached native build, and verifies that all
+four web-library imports resolve below `/workspace/packages/python`. It does not
+run root `make setup`, perform root npm installation, call `cargo install`, or
+build Mobile, Compass, Tauri, or Ariane.
 
-1. selects `/workspace/.venv-devcontainer` as the root uv environment;
-2. installs build-essential, Clang, CMake, WebKitGTK, app-indicator, SVG, SSL,
-   patchelf, and pkg-config dependencies;
-3. installs the WebAssembly Rust target;
-4. installs Trunk, wasm-pack, and Tauri CLI if missing;
-5. sources the existing `/app/.devcontainer/bashrc.override.sh` from the user
-   shell configuration;
-6. runs `make setup` from `/workspace`.
+After changing Rust code, refresh the extension and restart the webserver:
 
-The separate `.venv-devcontainer` prevents Linux binaries from colliding with a
-macOS or Windows host `.venv` in the bind-mounted repository.
+```bash
+/workspace/.devcontainer/sync-openspeleo-core.sh
+```
+
+Pure-Python changes require no synchronization.
+
+If a cache volume was created by an older configuration and uv reports a
+permission error, run the synchronization helper once from the workspace
+container. It elevates only long enough to migrate the shared cache ownership,
+then runs the editable installation as `dev-user`:
+
+```bash
+/workspace/.devcontainer/sync-openspeleo-core.sh
+```
 
 ### Ports
 
-| Port   | Use                          |
-| ------ | ---------------------------- |
-| `8000` | Django                       |
-| `8100` | Mobile Vite/WebNative        |
-| `1420` | Compass Trunk/Tauri frontend |
+| Port   | Use    |
+| ------ | ------ |
+| `8000` | Django |
 
 VS Code forwards these ports. The underlying web Compose file retains host
 networking. On Docker Desktop, use VS Code's forwarded-port URL if the host
@@ -787,21 +971,28 @@ In VS Code, run **Dev Containers: Reopen in Container**. After the post-create
 step completes:
 
 ```bash
-make doctor
 make dev-web
 ```
 
-`make dev-web` executes `/start` from `/app` and occupies that terminal. Use
-other terminals for mobile, Rust, or Java commands:
+`make dev-web` executes `/start` from `/app` and occupies that terminal. The
+container does not start or build Mobile, Compass, Tauri, or Java projects. Its
+Rust toolchain exists only to develop the web runtime's `openspeleo_core`
+dependency. Editing SpeleoDB or any overlaid Python source affects the next
+reload without rebuilding the container; Rust edits require the synchronization
+command above.
 
-```bash
-npm run dev --workspace=apps/mobile -- --host 0.0.0.0 --port 8100
-make check-rust
-make build-compass-ui
-make build-compass-tauri
-make build-core
-make build-ariane
-```
+### Local debug instrumentation
+
+Django Debug Toolbar remains installed, rendered, and reachable at `__debug__/`
+in the local runtime. Every default panel is listed in `DISABLE_PANELS`, so the
+toolbar is visible but its diagnostic tools collect no panel data until a
+developer enables one. Expensive panel sub-options such as template context,
+stack traces, SQL prettification, and project-code profiling also default to
+off.
+
+Enable only the panel needed from the toolbar UI; the selection applies to the
+next request and requires no settings edit or webserver restart. See
+`apps/web/docs/local-debugging.md` for the exact contract and verification.
 
 To validate or rebuild outside VS Code:
 
@@ -814,13 +1005,16 @@ docker compose \
 npx -y @devcontainers/cli build --workspace-folder .
 ```
 
-The Compose file uses fixed `speleodb_local_*` container names. Stop an existing
-standalone stack before trying to create another stack with the same names. Do
-not remove another developer's containers or volumes without their permission.
+The standalone Compose container names default to `speleodb_*`; the root
+devcontainer override defaults to `speleodb_devcontainer_*`. For any additional
+isolated stack, always set both a Compose project name and
+`COMPOSE_INSTANCE_PREFIX`, or use the documented `make dev-web-isolated` target.
+Do not remove another developer's containers or volumes without their
+permission.
 
-The container intentionally omits Android SDK, Android Studio, Xcode, signing
-credentials, and device tooling. Mobile web builds and Capacitor preparation
-work in Linux; signed Android/iOS builds remain host workflows.
+The container intentionally omits Rust, Cargo, Tauri CLI, Trunk, wasm-pack,
+Java, Gradle, mobile tooling, Android Studio/SDK, Xcode, signing credentials,
+and device tooling.
 
 ## Explicit pre-commit and mypy policy
 
@@ -832,6 +1026,23 @@ VS Code and devcontainer JSONC files as strict JSON. Each subtree's nested
 configuration remains authoritative after extraction. When adding a subtree, add
 its prefix to this exclusion as well as the subtree manifest.
 
+Root `.prekignore` additionally excludes `apps/mobile/`, `apps/ariane_plugin/`,
+and `apps/compass_sidecar/` from workspace discovery. Root `prek` and
+`make pre-commit` therefore never enter those projects. Mobile must use its own
+Node environment, while Ariane and Compass depend on their own Java or Rust
+toolchains. Run their hooks from inside the standalone directories:
+
+```bash
+(cd apps/mobile && prek run --all-files)
+(cd apps/ariane_plugin/org.speleodb.ariane.plugin.speleodb && prek run --all-files)
+(cd apps/compass_sidecar && prek run --all-files)
+```
+
+Mobile's and Compass's hook configurations are at their repository roots;
+Ariane's belongs to its plugin module. Starting inside the respective
+configuration directory finds the local `.pre-commit-config.yaml` before the
+monorepo root, so root `.prekignore` does not disable any standalone command.
+
 No hook is installed. Specifically, setup does not run `prek install`,
 `pre-commit install`, or configure `core.hooksPath`.
 
@@ -841,7 +1052,8 @@ Run validation explicitly:
 make pre-commit
 ```
 
-This invokes `scripts/run-precommit.sh --all-files`:
+This invokes `scripts/run-precommit.sh --all-files` for root-discovered
+projects:
 
 - if `dmypy` is on `PATH` or in `apps/web/.venv`, all hooks run normally;
 - if `dmypy` is missing locally, the launcher prints `apps/web:mypy ... Skipped`
@@ -879,7 +1091,7 @@ open PRs.
 | `javascript`    | Ubuntu, Node 22, root npm cache        | Root `npm ci`, app-local Capacitor assertion, both app lints, mobile build and Capacitor sync, mobile/web tests, both builds, clean tracked diff |
 | `rust`          | Ubuntu 24.04, stable Rust, Python 3.14 | Tauri system libraries, Trunk/Tauri CLI, both Cargo checks, Compass Trunk build, Tauri no-bundle compile, maturin wheel, clean tracked diff      |
 | `ariane`        | Ubuntu, Temurin JDK 25                 | Ariane Gradle 9.4.1 `build test`, clean tracked diff                                                                                             |
-| `web-mypy`      | Ubuntu, Python 3.14                    | Generated test env, full web local uv environment, required `dmypy`, authoritative mypy hook, clean tracked diff                                 |
+| `web-mypy`      | Ubuntu, Python 3.14                    | Root integration-lock check, generated test env, standalone web sync, required `dmypy`, authoritative mypy hook, clean tracked diff              |
 
 The `git diff --exit-code` steps intentionally fail when formatting, lock,
 Capacitor sync, or build hooks modify tracked files. Regenerate and commit those
@@ -909,8 +1121,9 @@ git diff --check
 git diff --exit-code
 ```
 
-Some commands are platform-specific or expensive. The devcontainer is the
-reference Linux environment for Tauri, maturin, Java, and web integration.
+Some commands are platform-specific or expensive. Root CI is the reference Linux
+environment for Tauri, maturin, and Java; the devcontainer is scoped to web
+development only.
 
 ## Troubleshooting
 
