@@ -1,5 +1,7 @@
 # Root hooks validate monorepo orchestration only. Every subtree is excluded
-# here because its nested .pre-commit-config.yaml remains authoritative.
+# from these hooks because its own .pre-commit-config.yaml remains
+# authoritative. .prekignore additionally prevents Ariane and Compass project
+# discovery; their hooks must be run from inside those standalone directories.
 exclude: >-
   (?x)^(
     apps/mobile/

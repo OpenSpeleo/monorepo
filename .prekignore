@@ -1,0 +1,5 @@
+# These application repositories own standalone hook environments.
+# Run `prek` from inside each directory when validating them.
+apps/mobile/
+apps/ariane_plugin/
+apps/compass_sidecar/

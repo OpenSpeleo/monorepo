@@ -56,7 +56,9 @@ printf '%-70s%s\n' \
 # If callers selected only the hook that was just skipped, there is nothing for
 # prek to run. Avoid turning that intentional local skip into prek's "No hooks
 # found after filtering" error. Normal hook and all-files runs still delegate
-# to prek so every other project remains authoritative.
+# to prek so every root-discovered project remains authoritative. Mobile,
+# Ariane, and Compass are deliberately outside that workspace through
+# .prekignore.
 mypy_selected=false
 other_selector=false
 for argument in "$@"; do
