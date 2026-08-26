@@ -428,11 +428,14 @@ class Section(BaseModel):
 
 class DMPFile(RootModel[list[Section]]):
     def to_json(self, filepath: str | Path | None = None) -> str:
-        json_str = orjson.dumps(
-            self.model_dump(),
-            None,
-            option=(orjson.OPT_INDENT_2 | orjson.OPT_SORT_KEYS),
-        ).decode("utf-8")
+        json_str = (
+            orjson.dumps(
+                self.model_dump(),
+                None,
+                option=(orjson.OPT_INDENT_2 | orjson.OPT_SORT_KEYS),
+            ).decode("utf-8")
+            + "\n"
+        )
 
         if filepath is not None:
             if not isinstance(filepath, Path):
@@ -511,7 +514,7 @@ class DMPFile(RootModel[list[Section]]):
 
             with filepath.open(mode="w") as file:
                 # always finish with a trailing ";"
-                file.write(f"{';'.join([str(nbr) for nbr in data])};")
+                file.write(f"{';'.join([str(nbr) for nbr in data])};\n")
 
         return data
 
