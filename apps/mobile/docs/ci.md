@@ -25,9 +25,17 @@ builds. The workflow lives in `.github/workflows/ci.yml`.
    archives the Xcode project, then verifies an IPA signed by a disposable CI
    identity.
 
-Pull requests and pushes to `main` run all five stages. Version tags retain the
-explicitly named `*-ci-smoke-*` workflow artifacts for seven days. They are
+Pull requests and pushes to `master` run all five stages. Version tags retain
+the explicitly named `*-ci-smoke-*` workflow artifacts for seven days. They are
 compile evidence only and are never attached to a GitHub release.
+
+## Default Branch Contract
+
+`master` is the repository-owned default branch. The workflow's push filter and
+its concurrency exception must change together: pushes to the default branch run
+CI, and an in-progress default-branch run is preserved while superseded
+feature-branch runs may be cancelled. Pull-request targeting remains independent
+and accepts every branch.
 
 ## Release Integrity
 
@@ -115,23 +123,6 @@ owning component, coordinator, fake-IndexedDB, native, or physical-device tests.
 `GPS_NATIVE_RELEASE_CHECKLIST.md` defines that evidence boundary and requires
 device/build identity for each manual result.
 
-## Release E2E Workflow
-
-`.github/workflows/release-e2e.yml` is a manual, credential-gated workflow
-rather than a pull-request check. It builds a credential-free debug package,
-then injects a dedicated staging OAuth token only into the Maestro execution
-steps. Android runs API 24/33/36 sequentially; iOS runs latest plus a required
-iOS 15.0 lane on an explicitly named compatible runner. The workflow has only
-`contents: read` permission, does not push or publish, and does not retain
-credential-bearing UI reports.
-
-The cross-platform flow owns fresh login, cached relaunch, Map/GPS navigation,
-pending-operation force-quit persistence, explicit replay, server-fixture
-cleanup, conditional sign-out warning, destructive purge, and signed-out
-relaunch. See `docs/release-device-evidence.md` for configuration, architecture,
-physical-only protocols, and the rule that missing matrix/device evidence blocks
-release.
-
 ## Secrets
 
 Integration tests are opt-in. They run only when `API_TEST_ENABLED=true` and all
@@ -146,7 +137,10 @@ The password-login endpoint can return `403` from GitHub-hosted runners even
 when the same credentials work locally. When that happens, integration tests
 accept the runner-side password-auth block only after validating
 `SPELEODB_OAUTH_TOKEN` against the same instance. Local runs remain strict for
-password login.
+password login. The live tests use the production `HttpClient` transport, whose
+Node-backed API requests identify as `SpeleoDB-Web`; do not substitute a
+test-only user agent because production edge security may challenge it before
+the request reaches SpeleoDB.
 
 Native compile-smoke builds use `SENTRY_DSN_ANDROID` and `SENTRY_DSN_IOS` when
 the secrets are available. Pull requests from forks cannot read repository
