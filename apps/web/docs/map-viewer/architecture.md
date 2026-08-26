@@ -239,7 +239,7 @@ initialization and not mutated during the session (except
 | ------------ | ------- | -------------------------------------------------------------------------------- |
 | `_projects`  | `Array` | Project list with `id`, `name`, `permissions`, `country`, `color`, `geojson_url` |
 | `_networks`  | `Array` | Surface network list with `id`, `name`, `permission_level`                       |
-| `_gpsTracks` | `Array` | GPS track metadata with `id`, `name`, `color`, `file` URL                        |
+| `_gpsTracks` | `Array` | Readable GPS track metadata with `id`, `name`, `color`, and signed `file` URL     |
 
 Key methods: `hasProjectAccess(id, action)`, `hasNetworkAccess(id, action)`,
 `hasScopedAccess(scopeType, scopeId, action)`, `getStationAccess(station)`,
@@ -358,6 +358,13 @@ sources keep their normal provider URLs to avoid breaking rendering.
 `MapCore.init()` installs a JavaScript `fetch` wrapper fallback that hashes
 matching configured raster tile responses when those requests pass through page
 `fetch`. Tile validation is implemented in browser JavaScript, not in Python.
+
+Local token ownership follows the same private-root configuration path as the
+other developer credentials: the repository-root `.env` owns
+`MAPBOX_API_TOKEN`, and `local.yml` explicitly interpolates it into the Django
+service environment. Do not duplicate a placeholder in `.envs/.django`, because
+OS environment values take precedence over Django's root `.env` loading and
+would silently replace the real token in both private and public map contexts.
 
 The control icon uses `MAP_SOURCE_ICON_SVG` in `map/sources.js`. That SVG is
 inserted with `innerHTML` only as trusted static markup so the user can replace
