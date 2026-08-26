@@ -6,7 +6,7 @@
       "prefix": "apps/mobile",
       "remote": "apps/mobile",
       "url": "git@github.com:OpenSpeleo/SpeleoDB-App.git",
-      "baseBranch": "main"
+      "baseBranch": "master"
     },
     {
       "id": "web",
@@ -20,7 +20,7 @@
       "prefix": "apps/compass_sidecar",
       "remote": "apps/compass_sidecar",
       "url": "git@github.com:OpenSpeleo/speleodb_compass_sidecar.git",
-      "baseBranch": "main"
+      "baseBranch": "master"
     },
     {
       "id": "ariane_plugin",
