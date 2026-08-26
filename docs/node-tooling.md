@@ -3,15 +3,16 @@
 ## Intent
 
 SpeleoDB has one root Node workspace and one first-party asset graph. Vite
-8.1.0 compiles Tailwind, route CSS, application ES modules, and shared chunks;
-Django remains the only HTML and static-file server. The repository does not
-run Vite's development server, proxy, HMR client, or HTML transformer.
+compiles Tailwind, route CSS, application ES modules, and shared chunks; Django
+remains the only HTML and static-file server. The repository does not run
+Vite's development server, proxy, HMR client, or HTML transformer.
 
 Node 22.12 or newer is required. Production images use Node 24. Exact direct
-compiler dependencies are `vite@8.1.0`, `@tailwindcss/vite@4.3.1`, and
-`tailwindcss@4.3.1`. Forms and typography remain pinned at `0.5.11` and
-`0.5.20`. The lockfile's only approved direct install script is the optional
-`fsevents@2.3.3` package; audit approvals whenever the graph changes.
+dependency versions live only in `package.json` and `package-lock.json` so
+documentation cannot drift from the install graph. Registry-backed lockfile
+nodes retain `resolved` and `integrity` metadata, and `allowScripts` must exactly
+match packages with install scripts. Audit both invariants whenever the graph
+changes.
 
 ## Asset graph
 
@@ -42,8 +43,8 @@ Django-generated `url_reverse.js` remain outside Vite.
 - `npm run test:assets-watch`: isolated watcher invalidation matrix.
 - `npm run lint:js` and `npm run test:js`: source quality gates.
 
-The watcher test mirrors sources under the operating-system temporary
-directory and reuses the installed dependency tree. It proves imported CSS
+The watcher test mirrors sources under the operating-system temporary directory
+and reuses the installed dependency tree. It proves imported CSS
 change/deletion, Tailwind source additions, shared-module invalidation,
 route-controller invalidation, and unrelated-route output stability.
 
@@ -64,9 +65,13 @@ serving and S3/CloudFront behavior.
 Railpack installs Node 24 and runs `npm ci && npm run build` while constructing
 the image. The runtime retains generated assets and manifest but not
 `node_modules`. Railway pre-deploy runs only migrations and `collectstatic`,
-because pre-deploy filesystem changes are not persisted. SPA serving is
-disabled and Gunicorn/Django remains the start command.
+because pre-deploy filesystem changes are not persisted. SPA serving is disabled
+and Gunicorn/Django remains the start command.
 
-When updating tooling, run clean installs on Node 22 and 24, audit pending
-scripts, run the complete build/lint/test suite, exercise watcher invalidation,
-and verify `collectstatic` plus production module MIME/CORS behavior.
+When updating tooling, regenerate the root lockfile independently of the
+installed tree; npm's hidden `node_modules/.package-lock.json` is not an
+acceptable source because it can omit registry resolution metadata. Confirm
+every registry-backed package retains its checksum, then run clean installs on
+Node 22 and 24, audit pending scripts, run the complete build/lint/test suite,
+exercise watcher invalidation, and verify `collectstatic` plus production
+module MIME/CORS behavior.

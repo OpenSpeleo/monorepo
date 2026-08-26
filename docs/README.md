@@ -14,8 +14,9 @@ Unlike product docs, these files prioritize:
 ### Architecture and System Design
 
 - `local-object-storage.md`
-  - local RustFS ownership, one-time bucket/CORS bootstrap, signed URL flow,
-    production boundaries, diagnostics, and regression coverage
+  - local RustFS ownership, automatic `.env`/GitLab/bucket/superuser bootstrap,
+    isolated Compose projects, signed URL flow, production boundaries,
+    diagnostics, and regression coverage
 - `map-viewer/architecture.md`
   - module dependency graph, private vs public comparison, initialization
     sequences, state management, layer system, event system, build pipeline
@@ -25,9 +26,12 @@ Unlike product docs, these files prioritize:
 
 ### Feature Documentation
 
+- `gps-tracks.md`
+  - GPS Track sharing permissions, soft-delete lifecycle, GPX export mapping,
+    API/UI contracts, performance boundaries, and verification strategy
 - `api-docs-access.md`
-  - user-level API Docs/API Schema menu visibility flag, admin ownership,
-    and permission boundaries
+  - user-level API Docs/API Schema menu visibility flag, admin ownership, and
+    permission boundaries
 - `map-viewer/features.md`
   - station/landmark/exploration lead/GPS track/cylinder management,
     drag-and-drop, context menu, component library
@@ -46,6 +50,12 @@ Unlike product docs, these files prioritize:
 
 ### Specialized Topics
 
+- `local-debugging.md`
+  - always-available Django Debug Toolbar with every panel disabled by default,
+    panel activation, performance rationale, and verification
+- `monorepo-native-dependencies.md`
+  - monorepo-only Rust toolchain boundary, editable `openspeleo_core` setup,
+    cache invalidation, and standalone-image behavior
 - `project-geojson-command.md`
   - management-command modes, Git clone lifecycle, GeoJSON recomputation,
     failure behavior, and performance boundaries
@@ -70,8 +80,8 @@ Unlike product docs, these files prioritize:
 ### Coding Rules
 
 - `coding-rules.md`
-  - JS constant centralization, Python import ordering, Django ORM rules
-    (hard rules, must not be violated)
+  - JS constant centralization, Python import ordering, Django ORM rules (hard
+    rules, must not be violated)
 
 Repository-wide agent guardrails live at:
 
