@@ -81,8 +81,6 @@ behaviors.
   lifecycle.
 - `pwa-metadata.md`: built web branding, manifest/icon ownership, and emitted
   asset verification.
-- `release-device-evidence.md`: credential-safe Android/iOS E2E matrices,
-  physical-device protocols, evidence fields, and release blocking rules.
 - `release-ceremony.md`: protected signing, versioning, artifact identity,
   installation/store validation, hashes, approval, and rollback.
 - `settings.md`: Settings page sections (event-driven sync stats, map settings,
@@ -95,6 +93,9 @@ behaviors.
   guarantees, and purpose strings for iOS and Android.
 - `screen-awake.md`: native Android/iOS foreground screen-awake ownership,
   lifecycle behavior, design boundaries, power impact, and device verification.
+- `ios-webview-editing.md`: iOS WebView editing ownership, the app-wide
+  shake-to-edit policy, unresolved three-finger responder boundaries, and
+  verification.
 - `android-safe-area.md`: why `env(safe-area-inset-bottom)` fails on Android,
   the `initAndroidSafeArea()` fallback, and which components consume the CSS
   variable.
