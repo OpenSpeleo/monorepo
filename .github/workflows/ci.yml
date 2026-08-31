@@ -117,12 +117,12 @@ jobs:
         run: |
           cp apps/web/.envs/test.env.dist apps/web/.envs/test.env
           uv sync --project apps/web --extra local --frozen
-      - name: Require dmypy and run the authoritative hook
+      - name: Require mypy and run the authoritative hook
         env:
           CI: "1"
         run: |
           export PATH="$PWD/apps/web/.venv/bin:$PATH"
-          command -v dmypy
+          command -v mypy
           bash scripts/run-precommit.sh apps/web:mypy --all-files
       - name: Fail when hooks modify tracked files
         run: git diff --exit-code

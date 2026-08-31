@@ -17,21 +17,20 @@ function executable(filename, body) {
   chmodSync(filename, 0o755);
 }
 
-function runLauncher({ ci, dmypy, args = ["--all-files"] }) {
+function runLauncher({ ci = false, mypy = true, args = ["--all-files"] } = {}) {
   const directory = mkdtempSync(path.join(tmpdir(), "speleodb-hook-"));
   const log = path.join(directory, "prek.log");
   const prek = path.join(directory, "prek");
   executable(prek, 'printf "%s\\n" "$@" > "$PREK_TEST_LOG"');
-  const dmypyPath = path.join(directory, "dmypy");
-  if (dmypy) executable(dmypyPath, "exit 0");
-
+  const mypyPath = path.join(directory, "mypy");
+  if (mypy) executable(mypyPath, "exit 0");
   const result = spawnSync("bash", ["scripts/run-precommit.sh", ...args], {
     cwd: ROOT,
     encoding: "utf8",
     env: {
       ...process.env,
       PREK_BIN: prek,
-      DMYPY_BIN: dmypyPath,
+      MYPY_BIN: mypyPath,
       PREK_TEST_LOG: log,
       ...(ci ? { CI: "1" } : { CI: "" }),
     },
@@ -98,7 +97,10 @@ test("web services share a dev-user-owned monorepo node_modules volume", () => {
   const volume = "speleodb_local_web_node_modules";
   const workspaceMount = `${volume}:/workspace/apps/web/node_modules`;
 
-  assert.ok(baseCompose.includes(`${volume}:/app/node_modules`));
+  assert.match(
+    baseCompose,
+    new RegExp(`source: ${volume}\\n\\s+target: /app/node_modules`),
+  );
   assert.equal(
     rootOverride.split(workspaceMount).length - 1,
     3,
@@ -119,6 +121,85 @@ test("web services share a dev-user-owned monorepo node_modules volume", () => {
   assert.match(nodeModulesSetup, /stat -c %u/);
   assert.match(nodeModulesSetup, /chown -R/);
   assert.match(nodeModulesSetup, /-ef "\$\{WORKSPACE_NODE_MODULES_DIR\}"/);
+});
+
+test("root devcontainer publishes Django independently of editor forwarding", () => {
+  const devcontainer = JSON.parse(
+    readFileSync(path.join(ROOT, ".devcontainer/devcontainer.json"), "utf8"),
+  );
+  const rootOverride = readFileSync(
+    path.join(ROOT, ".devcontainer/compose.override.yml"),
+    "utf8",
+  );
+  const stackRestart = readFileSync(
+    path.join(ROOT, ".devcontainer/restart-existing-stack.sh"),
+    "utf8",
+  );
+
+  assert.deepEqual(devcontainer.runServices, [
+    "postgres",
+    "redis",
+    "gitlab",
+    "rustfs",
+    "setup",
+    "django",
+    "django-webserver",
+  ]);
+  assert.equal(devcontainer.shutdownAction, "stopCompose");
+  assert.deepEqual(devcontainer.initializeCommand, [
+    "bash",
+    ".devcontainer/restart-existing-stack.sh",
+  ]);
+  assert.equal(devcontainer.updateRemoteUserUID, false);
+  assert.deepEqual(devcontainer.forwardPorts ?? [], []);
+  assert.equal(devcontainer.portsAttributes, undefined);
+  assert.match(rootOverride, /django:\n(?:.|\n)*?network_mode: !reset null/);
+  assert.match(rootOverride, /ports:\n\s+- "127\.0\.0\.1:8000:8000"/);
+  assert.match(
+    rootOverride,
+    /django-webserver:\n(?:.|\n)*?network_mode: service:django/,
+  );
+  assert.match(rootOverride, /AWS_S3_ENDPOINT_URL: http:\/\/rustfs:9000/);
+  assert.match(rootOverride, /AWS_S3_TEST_ENDPOINT_URL: http:\/\/rustfs:9000/);
+  assert.match(rootOverride, /GITLAB_HOST_URL: gitlab:9080/);
+  assert.match(rootOverride, /GITLAB_TEST_HOST_URL: gitlab:9080/);
+  assert.match(rootOverride, /POSTGRES_HOST: postgres/);
+  assert.match(rootOverride, /REDIS_URL: redis:\/\/redis:6379\/0/);
+  assert.match(rootOverride, /setup:\n(?:.|\n)*?network_mode: !reset null/);
+  assert.match(rootOverride, /GITLAB_SETUP_URL: http:\/\/gitlab:9080/);
+  assert.match(rootOverride, /GIT_CONFIG_COUNT: "1"/);
+  assert.match(rootOverride, /GIT_CONFIG_KEY_0: safe\.directory/);
+  assert.match(rootOverride, /GIT_CONFIG_VALUE_0: \/workspace/);
+  for (const service of [
+    "django",
+    "postgres",
+    "redis",
+    "django-webserver",
+    "gitlab",
+    "rustfs",
+  ]) {
+    assert.match(
+      rootOverride,
+      new RegExp(`${service}:\\n(?:.|\\n)*?restart: unless-stopped`),
+    );
+  }
+  assert.doesNotMatch(
+    rootOverride,
+    /setup:\n(?:.|\n)*?restart: unless-stopped/,
+  );
+  for (const serviceSuffix of [
+    "local_postgres",
+    "local_redis",
+    "gitlab_lab",
+    "rustfs",
+    "local_setup",
+    "local_django",
+    "local_django_webserver",
+  ]) {
+    assert.match(stackRestart, new RegExp(`CONTAINER_PREFIX}[_]${serviceSuffix}`));
+  }
+  assert.match(stackRestart, /docker restart/);
+  assert.match(stackRestart, /docker wait/);
 });
 
 test("root Python integration keeps web virtual and shared libraries editable", () => {
@@ -194,11 +275,11 @@ test("devcontainer imports all web libraries from live monorepo source", () => {
   }
   assert.match(
     rootOverride,
-    /django-webserver:[\s\S]*environment: \*monorepo_python_environment/,
+    /django-webserver:[\s\S]*environment: \*monorepo_web_environment/,
   );
   assert.match(
     rootOverride,
-    /setup:[\s\S]*environment: \*monorepo_python_environment/,
+    /setup:[\s\S]*environment: \*monorepo_setup_environment/,
   );
   assert.match(rootOverride, /DOCKER_INCLUDE_MONOREPO_RUST_TOOLCHAIN: "1"/);
   assert.match(postCreate, /sync-openspeleo-core\.sh/);
@@ -252,44 +333,37 @@ test("devcontainer imports all web libraries from live monorepo source", () => {
   );
 });
 
-test("local run reports the web mypy hook as skipped when dmypy is absent", () => {
-  const result = runLauncher({ ci: false, dmypy: false });
+test("launcher forwards all-files runs directly to prek", () => {
+  const result = runLauncher();
   assert.equal(result.status, 0, result.stderr);
-  assert.deepEqual(result.args, [
-    "run",
-    "--skip",
-    "apps/web:mypy",
-    "--all-files",
-  ]);
-  assert.match(result.stdout, /apps\/web:mypy .*Skipped/);
-  assert.doesNotMatch(result.stdout, /Passed/);
+  assert.deepEqual(result.args, ["run", "--all-files"]);
 });
 
-test("selecting only unavailable web mypy is a successful local skip", () => {
+test("launcher forwards a selected web mypy hook in CI", () => {
   const result = runLauncher({
-    ci: false,
-    dmypy: false,
+    ci: true,
     args: ["apps/web:mypy", "--all-files"],
   });
   assert.equal(result.status, 0, result.stderr);
-  assert.deepEqual(result.args, []);
-  assert.match(result.stdout, /apps\/web:mypy .*Skipped/);
+  assert.deepEqual(result.args, ["run", "apps/web:mypy", "--all-files"]);
 });
 
-test("local run executes normally when dmypy is installed", () => {
-  const result = runLauncher({ ci: false, dmypy: true });
-  assert.equal(result.status, 0, result.stderr);
-  assert.deepEqual(result.args, ["run", "--all-files"]);
-});
-
-test("CI fails immediately when dmypy is absent", () => {
-  const result = runLauncher({ ci: true, dmypy: false });
+test("launcher fails explicitly when mypy is unavailable", () => {
+  const result = runLauncher({ mypy: false });
   assert.equal(result.status, 127);
-  assert.match(result.stderr, /dmypy is required in CI/);
+  assert.match(result.stderr, /mypy is required/);
+  assert.deepEqual(result.args, []);
 });
 
-test("CI executes normally when dmypy is installed", () => {
-  const result = runLauncher({ ci: true, dmypy: true });
-  assert.equal(result.status, 0, result.stderr);
-  assert.deepEqual(result.args, ["run", "--all-files"]);
+test("web type checking uses mypy without the daemon client", () => {
+  const config = readFileSync(
+    path.join(ROOT, "apps/web/.pre-commit-config.yaml"),
+    "utf8",
+  );
+  assert.match(config, /^\s+entry: mypy$/m);
+  assert.doesNotMatch(config, /^\s+entry: dmypy$/m);
+  assert.ok(
+    config.includes('args: ["--config-file", "pyproject.toml", "."]'),
+  );
+  assert.match(config, /^\s+pass_filenames: false$/m);
 });

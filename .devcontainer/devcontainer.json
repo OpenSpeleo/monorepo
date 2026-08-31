@@ -5,20 +5,25 @@
     "compose.override.yml"
   ],
   "service": "django",
+  "runServices": [
+    "postgres",
+    "redis",
+    "gitlab",
+    "rustfs",
+    "setup",
+    "django",
+    "django-webserver"
+  ],
   "workspaceFolder": "/workspace",
+  "shutdownAction": "stopCompose",
+  "initializeCommand": [
+    "bash",
+    ".devcontainer/restart-existing-stack.sh"
+  ],
   "remoteUser": "dev-user",
+  "updateRemoteUserUID": false,
   "init": true,
   "overrideCommand": false,
-  "forwardPorts": [8000],
-  "portsAttributes": {
-    "8000": {
-      "label": "SpeleoDB Django",
-      "onAutoForward": "notify",
-      "elevateIfNeeded": false,
-      "requireLocalPort": false,
-      "protocol": "http"
-    }
-  },
   "customizations": {
     "vscode": {
       "settings": {

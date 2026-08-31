@@ -304,9 +304,10 @@ make test-monorepo
 real remotes, or depend on network access.
 
 `precommit-launcher.test.mjs` uses temporary fake executables through `PREK_BIN`
-and `DMYPY_BIN`. It must cover all four policy states—local missing, local
-installed, CI missing, and CI installed—plus the single-selected-hook skip case.
-It must not install hooks or invoke real project hooks.
+and `MYPY_BIN`. It must cover argument forwarding for normal and selected-hook
+runs, missing-mypy failure, assert that the web hook uses regular `mypy`, and
+preserve the workspace discovery boundaries. It must not install hooks or invoke
+real project hooks.
 
 Any change to tool commands, selectors, safety checks, status semantics, branch
 resolution, or launcher behavior requires:
@@ -640,15 +641,11 @@ Launcher behavior:
 
 - locate prek on `PATH`, in `.venv-devcontainer`, root `.venv`, web `.venv`, or
   root `node_modules`;
-- locate `dmypy` on `PATH` or in the web virtual environment;
-- with local `dmypy`, run all requested hooks;
-- without local `dmypy`, print an explicit `Skipped` status and pass
-  `--skip apps/web:mypy` to prek;
-- if only unavailable web mypy was selected, report the skip and exit zero;
-- under non-empty `CI`, fail immediately when `dmypy` is missing.
-
-Raw `prek run` bypasses this policy and can fail with `dmypy` missing. Do not
-diagnose that as an installed hook; inspect the command path first.
+- locate `mypy` on `PATH` or in the web virtual environment;
+- forward requested selectors and options directly to prek;
+- run the web type-checking hook with regular `mypy`, never `dmypy`;
+- treat a missing `mypy` executable as an environment failure rather than
+  silently skipping type checking.
 
 Never add `.githooks/`, modify `.git/hooks/`, or configure `core.hooksPath` as a
 solution.
@@ -758,6 +755,12 @@ Required invariants:
 - setup initializes the Node volume for `dev-user`; the `django` and
   `django-webserver` services run as `dev-user`, and no normal monorepo npm or
   Vite process writes dependencies as root;
+- root `devcontainer.json` retains `updateRemoteUserUID: false`, preventing an
+  editor from changing only the workspace container's `dev-user` UID and making
+  the shared Node or Python build-cache volumes unwritable;
+- the shared devcontainer environment sets Git's environment-backed
+  `safe.directory=/workspace`; keep this available before lifecycle commands so
+  editor Git integration trusts the bind-mounted monorepo immediately;
 - `.devcontainer/prepare-web-node-modules.sh` checks the volume root before any
   recursive ownership migration; do not replace it with an unconditional startup
   `chown -R`;
@@ -785,9 +788,21 @@ Required invariants:
   privileges before invoking uv or Cargo, and perform every normal sync as
   `dev-user`;
 - existing web image, `/entrypoint`, `/start`, environment files, PostgreSQL,
-  Redis, RustFS, and host networking remain authoritative;
+  Redis, and RustFS remain authoritative; the standalone stack retains host
+  networking while the root devcontainer uses Compose networking for setup and
+  publishes port 8000 on host loopback from the `django` workspace namespace
+  shared by `django-webserver`;
 - `django` and `django-webserver` remain gated on successful completion of the
   idempotent `setup` service;
+- every long-running root devcontainer service uses `restart: unless-stopped`;
+  `setup` retains `restart: "no"`, and exit code zero is its healthy completed
+  state;
+- `.devcontainer/restart-existing-stack.sh` runs as the host-side
+  `initializeCommand` on every open; for an existing complete stack it restarts
+  PostgreSQL, Redis, GitLab, and RustFS, waits for health, reruns and waits for
+  `setup`, then restarts `django` and `django-webserver`; it must remain a no-op
+  before the initial Compose creation and must never remove containers or
+  volumes;
 - `setup` waits for healthy PostgreSQL, Redis, RustFS, and GitLab full
   readiness, then provisions the GitLab group/token and RustFS buckets;
 - on first run, `setup` copies tracked `apps/web/.env.dist` to ignored
@@ -813,7 +828,9 @@ Required invariants:
   container name by default, preventing VS Code's `web` Compose project from
   colliding with preserved standalone `speleodb_*` containers;
 - `make dev-web` runs the existing `/start` from `/app`;
-- only Django port 8000 is forwarded;
+- only Django port 8000 is published, on host loopback by the root Compose
+  override; `forwardPorts` must remain unset so Zed cannot add a conflicting
+  all-interface binding;
 - the image's `/opt/speleodb-venv/bin/python` and installed web dependencies
   remain the container Python environment;
 - stable Rust and Cargo exist only for the editable `openspeleo_core` web
@@ -853,8 +870,8 @@ docker compose \
 ```
 
 When testing runtime startup, verify migrations, Vite, `/start`, and an HTTP
-response from Django. On Docker Desktop, inspect inside the service or use VS
-Code port forwarding if host networking differs from native Linux.
+response from Django at host port 8000. The root devcontainer must not depend on
+editor-specific port forwarding for that response.
 
 ## Root CI contract
 
@@ -870,7 +887,7 @@ Jobs:
    tools, two Cargo checks, Compass UI/Tauri builds, maturin build, clean diff.
 4. `ariane`: Temurin Java 25, Gradle wrapper build/tests, clean diff.
 5. `web-mypy`: Python 3.14, root integration-lock freshness, generated test env,
-   standalone web local environment, required `dmypy`, authoritative mypy hook,
+   standalone web local environment, required `mypy`, authoritative mypy hook,
    clean diff.
 
 CI must fail if hooks or generators modify tracked files. Do not weaken the

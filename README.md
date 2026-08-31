@@ -203,7 +203,7 @@ location for generated output or downloaded executables.
 | `tools/subtree.mjs`                 | Executable repository-local subtree CLI                                                |
 | `tools/subtree-lib.mjs`             | Internal JavaScript module used by the CLI and its unit tests                          |
 | `tools/subtree.test.mjs`            | Unit tests for manifest, selection, prefix, branch-command, and remote safety behavior |
-| `tools/precommit-launcher.test.mjs` | Unit tests for local/CI `dmypy` detection and skip behavior                            |
+| `tools/precommit-launcher.test.mjs` | Unit tests for prek launcher forwarding and workspace policy                           |
 
 ### `tools/subtree.mjs`
 
@@ -307,14 +307,12 @@ Run only the launcher-policy tests with:
 node --test tools/precommit-launcher.test.mjs
 ```
 
-The test creates temporary fake `prek` and `dmypy` executables and invokes
-`scripts/run-precommit.sh`. It covers local missing-`dmypy` skip reporting,
-selecting only the skipped hook, local installed-`dmypy` execution, CI failure
-without `dmypy`, CI execution with it, and the committed Mobile/Ariane/Compass
-discovery boundary. It also locks the shared Linux `node_modules` mount used by
-workspace web hooks, the virtual-web root lock contract, and the devcontainer's
-live Python source overlay. It installs no hook and does not run real project
-hooks.
+The test creates temporary fake `prek` and `mypy` executables and invokes
+`scripts/run-precommit.sh`. It covers argument forwarding, missing-mypy failure,
+the non-daemon web mypy hook, and the committed Mobile/Ariane/Compass discovery
+boundary. It also locks the shared Linux `node_modules` mount used by workspace
+web hooks, the virtual-web root lock contract, and the devcontainer's live
+Python source overlay. It installs no hook and does not run real project hooks.
 
 Run every file under `tools/` that has the `.test.mjs` suffix with either:
 
@@ -689,8 +687,8 @@ uv sync --extra local --frozen
 uv run pytest
 ```
 
-The `local` web environment provides `dmypy`, which is needed to execute the web
-mypy hook rather than skip it.
+The `local` web environment provides `mypy`, which executes the authoritative
+web type-checking hook.
 
 ## Rust and native builds
 
@@ -906,8 +904,8 @@ remove it. The command creates volumes such as
 volumes owned by another Compose project or devcontainer prefix.
 
 On Linux, the preserved host-network configuration exposes Django directly on
-port 8000. On Docker Desktop, this requires Docker's host-networking support; if
-that feature is disabled, use the devcontainer's VS Code port forwarding. An
+port 8000. On Docker Desktop, this requires Docker's host-networking support.
+The root devcontainer uses the separately documented published-port layout. An
 inside-container health check remains available at `/api/health/details/`.
 
 Stop the isolated containers while retaining their new volumes:
@@ -961,9 +959,27 @@ then runs the editable installation as `dev-user`:
 | ------ | ------ |
 | `8000` | Django |
 
-VS Code forwards these ports. The underlying web Compose file retains host
-networking. On Docker Desktop, use VS Code's forwarded-port URL if the host
-network does not expose the service exactly like native Linux.
+The root devcontainer publishes this port on the host loopback interface through
+Docker Compose. The standalone web Compose file retains host networking, while
+the root override uses a shared workspace/webserver network namespace so editors
+without `forwardPorts` support can still use `http://localhost:8000`.
+
+All long-running root devcontainer services use `restart: unless-stopped`, so a
+webserver or dependency terminated by resource pressure restarts without an
+editor-driven Compose recreation. The `setup` container is intentionally a
+one-shot job: `Exited (0)` is its healthy completed state. Remote UID rewriting
+is disabled so the workspace, setup job, and webserver consistently use
+`dev-user` UID/GID 1000 on their shared cache and Node volumes. Git receives
+`safe.directory=/workspace` through the container environment, so Zed and
+terminal Git commands trust the bind-mounted monorepo immediately, before any
+post-create lifecycle command runs.
+
+Reopening the devcontainer also runs the host-side
+`.devcontainer/restart-existing-stack.sh` initialization command. For an
+existing stack it restarts all four infrastructure services, waits for their
+health checks, reruns the idempotent setup job, and then restarts the workspace
+and webserver. For an initial creation it exits without action so `runServices`
+remains the authoritative creation path.
 
 ### Starting and using the container
 
@@ -1053,23 +1069,11 @@ make pre-commit
 ```
 
 This invokes `scripts/run-precommit.sh --all-files` for root-discovered
-projects:
-
-- if `dmypy` is on `PATH` or in `apps/web/.venv`, all hooks run normally;
-- if `dmypy` is missing locally, the launcher prints `apps/web:mypy ... Skipped`
-  and invokes prek with `--skip apps/web:mypy`;
-- if only `apps/web:mypy` was requested locally and it is unavailable, the
-  launcher reports the skip and exits successfully;
-- if `CI` is non-empty and `dmypy` is missing, the launcher exits with failure;
-- CI installs the full web local environment and therefore executes mypy.
-
-Running raw `prek run` bypasses this wrapper and will fail with
-`dmypy: No such file or directory` when the binary is absent. Either use
-`make pre-commit` or explicitly skip it:
-
-```bash
-prek run --skip apps/web:mypy --all-files
-```
+projects. The launcher locates `prek` and `mypy`, including `mypy` from the web
+virtual environment, then forwards the requested hook selectors and options
+unchanged. A missing executable is an explicit environment error rather than a
+local skip. CI installs the full web local environment and requires `mypy`
+before running the hook.
 
 To execute only web mypy:
 
@@ -1091,7 +1095,7 @@ open PRs.
 | `javascript`    | Ubuntu, Node 22, root npm cache        | Root `npm ci`, app-local Capacitor assertion, both app lints, mobile build and Capacitor sync, mobile/web tests, both builds, clean tracked diff |
 | `rust`          | Ubuntu 24.04, stable Rust, Python 3.14 | Tauri system libraries, Trunk/Tauri CLI, both Cargo checks, Compass Trunk build, Tauri no-bundle compile, maturin wheel, clean tracked diff      |
 | `ariane`        | Ubuntu, Temurin JDK 25                 | Ariane Gradle 9.4.1 `build test`, clean tracked diff                                                                                             |
-| `web-mypy`      | Ubuntu, Python 3.14                    | Root integration-lock check, generated test env, standalone web sync, required `dmypy`, authoritative mypy hook, clean tracked diff              |
+| `web-mypy`      | Ubuntu, Python 3.14                    | Root integration-lock check, generated test env, standalone web sync, required `mypy`, authoritative mypy hook, clean tracked diff               |
 
 The `git diff --exit-code` steps intentionally fail when formatting, lock,
 Capacitor sync, or build hooks modify tracked files. Regenerate and commit those
@@ -1127,10 +1131,9 @@ development only.
 
 ## Troubleshooting
 
-### `dmypy` cannot be found
+### `mypy` cannot be found
 
-You invoked raw prek or do not have the web local environment. Use
-`make pre-commit` to get the local skip policy, or install it:
+Install the web local environment, then rerun the hook:
 
 ```bash
 uv sync --project apps/web --extra local --frozen

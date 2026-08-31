@@ -3,19 +3,44 @@ volumes:
     name: "${COMPOSE_INSTANCE_PREFIX:-speleodb_devcontainer}_local_web_node_modules"
   speleodb_local_monorepo_python_build_cache: {}
 
+x-monorepo-python-environment: &monorepo_python_environment
+  CARGO_HOME: /monorepo-python-build-cache/cargo
+  CARGO_TARGET_DIR: /monorepo-python-build-cache/openspeleo-core-target
+  GIT_CONFIG_COUNT: "1"
+  GIT_CONFIG_KEY_0: safe.directory
+  GIT_CONFIG_VALUE_0: /workspace
+  PYTHONPATH: "/workspace/packages/python/openspeleo_core/src_python:/workspace/packages/python/mnemo_lib:/workspace/packages/python/compass_lib:/workspace/packages/python/openspeleo_lib"
+  RUSTUP_TOOLCHAIN: stable
+  UV_CACHE_DIR: /monorepo-python-build-cache/uv
+
+x-monorepo-web-environment: &monorepo_web_environment
+  <<: *monorepo_python_environment
+  AWS_S3_ENDPOINT_URL: http://rustfs:9000
+  AWS_S3_TEST_ENDPOINT_URL: http://rustfs:9000
+  GITLAB_HOST_URL: gitlab:9080
+  GITLAB_TEST_HOST_URL: gitlab:9080
+  POSTGRES_HOST: postgres
+  REDIS_URL: redis://redis:6379/0
+
+x-monorepo-setup-environment: &monorepo_setup_environment
+  <<: *monorepo_python_environment
+  AWS_S3_ENDPOINT_URL: http://rustfs:9000
+  GITLAB_SETUP_URL: http://gitlab:9080
+  POSTGRES_HOST: postgres
+  REDIS_URL: redis://redis:6379/0
+
 services:
   django:
     user: dev-user
+    restart: unless-stopped
     build:
       args:
         DOCKER_INCLUDE_MONOREPO_RUST_TOOLCHAIN: "1"
     container_name: "${COMPOSE_INSTANCE_PREFIX:-speleodb_devcontainer}_local_django"
-    environment: &monorepo_python_environment
-      CARGO_HOME: /monorepo-python-build-cache/cargo
-      CARGO_TARGET_DIR: /monorepo-python-build-cache/openspeleo-core-target
-      PYTHONPATH: "/workspace/packages/python/openspeleo_core/src_python:/workspace/packages/python/mnemo_lib:/workspace/packages/python/compass_lib:/workspace/packages/python/openspeleo_lib"
-      RUSTUP_TOOLCHAIN: stable
-      UV_CACHE_DIR: /monorepo-python-build-cache/uv
+    environment: *monorepo_web_environment
+    network_mode: !reset null
+    ports:
+      - "127.0.0.1:8000:8000"
     volumes:
       - ../..:/workspace:z
       - speleodb_local_web_node_modules:/workspace/apps/web/node_modules
@@ -23,17 +48,24 @@ services:
 
   postgres:
     container_name: "${COMPOSE_INSTANCE_PREFIX:-speleodb_devcontainer}_local_postgres"
+    restart: unless-stopped
 
   redis:
     container_name: "${COMPOSE_INSTANCE_PREFIX:-speleodb_devcontainer}_local_redis"
+    restart: unless-stopped
 
   django-webserver:
     user: dev-user
+    restart: unless-stopped
     build:
       args:
         DOCKER_INCLUDE_MONOREPO_RUST_TOOLCHAIN: "1"
     container_name: "${COMPOSE_INSTANCE_PREFIX:-speleodb_devcontainer}_local_django_webserver"
-    environment: *monorepo_python_environment
+    depends_on:
+      django:
+        condition: service_started
+    environment: *monorepo_web_environment
+    network_mode: service:django
     volumes:
       - ../..:/workspace:z
       - speleodb_local_web_node_modules:/workspace/apps/web/node_modules
@@ -45,9 +77,11 @@ services:
 
   gitlab:
     container_name: "${COMPOSE_INSTANCE_PREFIX:-speleodb_devcontainer}_gitlab_lab"
+    restart: unless-stopped
 
   rustfs:
     container_name: "${COMPOSE_INSTANCE_PREFIX:-speleodb_devcontainer}_rustfs"
+    restart: unless-stopped
 
   setup:
     user: root
@@ -55,7 +89,8 @@ services:
       args:
         DOCKER_INCLUDE_MONOREPO_RUST_TOOLCHAIN: "1"
     container_name: "${COMPOSE_INSTANCE_PREFIX:-speleodb_devcontainer}_local_setup"
-    environment: *monorepo_python_environment
+    environment: *monorepo_setup_environment
+    network_mode: !reset null
     volumes:
       - ../..:/workspace:z
       - speleodb_local_web_node_modules:/workspace/apps/web/node_modules
