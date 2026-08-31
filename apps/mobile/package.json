@@ -52,7 +52,7 @@
     "react-router-dom": "^5.3.4"
   },
   "devDependencies": {
-    "@capacitor/cli": "^8.5.0",
+    "@capacitor/cli": "^8.4.2",
     "@eslint/js": "^9.39.5",
     "@j178/prek": "^0.4.14",
     "@maplibre/maplibre-gl-style-spec": "^26.4.1",
@@ -90,10 +90,5 @@
   "lint-staged": {
     "*.{ts,tsx}": "eslint --fix"
   },
-  "description": "An Ionic project",
-  "allowScripts": {
-    "fsevents@2.3.3": true,
-    "@sentry/capacitor@4.3.0": true,
-    "core-js@3.50.0": true
-  }
+  "description": "An Ionic project"
 }

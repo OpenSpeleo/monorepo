@@ -27,8 +27,8 @@
     "node": ">=22.12.0"
   },
   "allowScripts": {
-    "@sentry/capacitor@4.2.0": true,
-    "core-js@3.49.0": true,
-    "fsevents@2.3.3": true
+    "@sentry/capacitor": true,
+    "core-js": true,
+    "fsevents": true
   }
 }
