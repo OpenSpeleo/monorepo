@@ -855,16 +855,18 @@ preserves the web dependency graph, writes the platform-specific extension
 beside the bind-mounted Python source, and verifies that both import origins are
 below the monorepo package. The setup job is otherwise idempotent:
 
-1. copy `apps/web/.env.dist` to the ignored `apps/web/.env` when the private
-   file does not exist, without overwriting developer changes on later runs;
-2. use the existing `python-gitlab` dependency to create or retrieve the local
-   `speleodb` GitLab group;
-3. read its real group ID rather than assuming one;
+1. copy `apps/web/.env.dist` and `apps/web/.envs/test.env.dist` to their ignored
+   private counterparts when absent, without overwriting developer changes on
+   later runs;
+2. use the existing `python-gitlab` dependency to create or retrieve separate
+   local `speleodb` development and `speleodb-test` test groups;
+3. read both real group IDs rather than assuming either one;
 4. disable access-token expiration enforcement in the local GitLab instance,
    validate the existing non-expiring group token, and replace it when it is
    missing, invalid, or still has an expiration date;
-5. populate the generated GitLab values and development RustFS bucket name in
-   `apps/web/.env`, which Django already reads;
+5. populate each private env with its own group token and RustFS bucket:
+   development resources in `apps/web/.env` and isolated test resources in
+   `apps/web/.envs/test.env`;
 6. run Django's `create_s3_local_buckets` command to create both canonical
    buckets and apply their local policy/CORS configuration;
 7. apply Django migrations;
@@ -880,8 +882,9 @@ records.
 
 The GitLab root credentials, local bootstrap token, RustFS access key/secret,
 and placeholder Mapbox token are fixed development-only values in Compose. The
-generated GitLab group token is private and is never committed. Resetting a
-GitLab or RustFS volume is recovered on the next Compose start.
+generated development and test GitLab group tokens are private and are never
+committed. Resetting a GitLab or RustFS volume is recovered on the next Compose
+start.
 
 ### Isolated fresh Compose stack
 
@@ -972,7 +975,10 @@ is disabled so the workspace, setup job, and webserver consistently use
 `dev-user` UID/GID 1000 on their shared cache and Node volumes. Git receives
 `safe.directory=/workspace` through the container environment, so Zed and
 terminal Git commands trust the bind-mounted monorepo immediately, before any
-post-create lifecycle command runs.
+post-create lifecycle command runs. GitLab-backed tests create unpredictable
+repository paths below `.workdir`; the private test env enables Git wildcard
+trust only in pytest processes so those isolated bind-mounted clones work
+without broadening trust for normal development commands.
 
 Reopening the devcontainer also runs the host-side
 `.devcontainer/restart-existing-stack.sh` initialization command. For an

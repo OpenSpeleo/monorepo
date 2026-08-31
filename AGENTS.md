@@ -760,7 +760,8 @@ Required invariants:
   the shared Node or Python build-cache volumes unwritable;
 - the shared devcontainer environment sets Git's environment-backed
   `safe.directory=/workspace`; keep this available before lifecycle commands so
-  editor Git integration trusts the bind-mounted monorepo immediately;
+  editor Git integration trusts the bind-mounted monorepo immediately; wildcard
+  trust for dynamically named repositories belongs only in the private test env;
 - `.devcontainer/prepare-web-node-modules.sh` checks the volume root before any
   recursive ownership migration; do not replace it with an unconditional startup
   `chown -R`;
@@ -804,18 +805,21 @@ Required invariants:
   before the initial Compose creation and must never remove containers or
   volumes;
 - `setup` waits for healthy PostgreSQL, Redis, RustFS, and GitLab full
-  readiness, then provisions the GitLab group/token and RustFS buckets;
-- on first run, `setup` copies tracked `apps/web/.env.dist` to ignored
-  `apps/web/.env`; later runs preserve developer values and update only managed
-  local-service keys;
+  readiness, then provisions separate development and test GitLab groups/tokens
+  and RustFS buckets;
+- on first run, `setup` copies tracked `apps/web/.env.dist` and
+  `apps/web/.envs/test.env.dist` to their ignored counterparts; later runs
+  preserve developer values and update only managed local-service keys;
 - GitLab provisioning uses the web application's `python-gitlab` dependency; do
   not replace its resource managers with hand-written HTTP calls;
 - local GitLab disables access-token expiration enforcement; its bootstrap and
-  group tokens remain non-expiring development credentials, and setup replaces
-  legacy expiring tokens;
-- dynamic `GITLAB_GROUP_ID`, `GITLAB_TOKEN`, and the local runtime bucket remain
-  in ignored `apps/web/.env`, which Django loads itself; never hard-code a
-  GitLab group ID or pass these generated values through a new entrypoint path;
+  group tokens remain non-expiring local credentials, and setup replaces legacy
+  expiring tokens independently for the development and test groups;
+- dynamic development GitLab credentials and the development bucket remain in
+  ignored `apps/web/.env`; independently provisioned test credentials and the
+  test bucket remain in ignored `apps/web/.envs/test.env`; never share these
+  namespaces, hard-code either GitLab group ID, or pass generated values through
+  a new entrypoint path;
 - after bucket setup, `setup` runs migrations and the DEBUG-only, idempotent
   `ensure_local_superuser` command; the local account is `contact@speleodb.org`
   / `contact`, has country USA (stored as `US`), and has a verified primary
