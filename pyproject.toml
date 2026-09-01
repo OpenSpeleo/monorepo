@@ -12,7 +12,7 @@ dev = [
 package = false
 
 [tool.uv.sources]
-SpeleoDB_Repo = { path = "./apps/web/", package = false }
+speleodb_website = { path = "./apps/web/", package = false }
 ariane_lib = { path = "./packages/python/ariane_lib/", editable = true }
 compass_lib = { path = "./packages/python/compass_lib/", editable = true }
 mnemo_lib = { path = "./packages/python/mnemo_lib/", editable = true }
@@ -31,7 +31,7 @@ dependencies = [
     # "python-dotenv>=1.2.2,<2.0.0",
     # "cryptography>=46.0.7,<50.0.0",
     # Projects
-    "SpeleoDB_Repo[local]",
+    "speleodb_website[local]",
     "ariane_lib[test]",
     "compass_lib[test]",
     "mnemo_lib[test]",
