@@ -980,12 +980,13 @@ repository paths below `.workdir`; the private test env enables Git wildcard
 trust only in pytest processes so those isolated bind-mounted clones work
 without broadening trust for normal development commands.
 
-Reopening the devcontainer also runs the host-side
-`.devcontainer/restart-existing-stack.sh` initialization command. For an
-existing stack it restarts all four infrastructure services, waits for their
-health checks, reruns the idempotent setup job, and then restarts the workspace
-and webserver. For an initial creation it exits without action so `runServices`
-remains the authoritative creation path.
+Opening or reopening the devcontainer uses the editor's normal Compose build/up
+path with the complete `runServices` graph. There is no separate host-side
+restart path: Compose owns dependency ordering, health gates, setup completion,
+and service reconciliation in both the standalone repository and monorepo. The
+root override changes only monorepo mounts, networking, and toolchain additions;
+it does not replace Compose lifecycle semantics. Named data volumes remain
+persistent across service rebuilds and recreation.
 
 ### Starting and using the container
 

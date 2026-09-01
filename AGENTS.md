@@ -798,12 +798,11 @@ Required invariants:
 - every long-running root devcontainer service uses `restart: unless-stopped`;
   `setup` retains `restart: "no"`, and exit code zero is its healthy completed
   state;
-- `.devcontainer/restart-existing-stack.sh` runs as the host-side
-  `initializeCommand` on every open; for an existing complete stack it restarts
-  PostgreSQL, Redis, GitLab, and RustFS, waits for health, reruns and waits for
-  `setup`, then restarts `django` and `django-webserver`; it must remain a no-op
-  before the initial Compose creation and must never remove containers or
-  volumes;
+- devcontainer creation and reopening use the editor's normal Compose build/up
+  path and complete `runServices` graph, matching standalone Compose lifecycle
+  semantics; do not add a host-side `initializeCommand`, raw container restart
+  path, or selected-service `--no-deps` path that can bypass configuration,
+  dependency, health, or setup reconciliation;
 - `setup` waits for healthy PostgreSQL, Redis, RustFS, and GitLab full
   readiness, then provisions separate development and test GitLab groups/tokens
   and RustFS buckets;

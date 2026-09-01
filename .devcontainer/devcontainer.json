@@ -16,10 +16,6 @@
   ],
   "workspaceFolder": "/workspace",
   "shutdownAction": "stopCompose",
-  "initializeCommand": [
-    "bash",
-    ".devcontainer/restart-existing-stack.sh"
-  ],
   "remoteUser": "dev-user",
   "updateRemoteUserUID": false,
   "init": true,

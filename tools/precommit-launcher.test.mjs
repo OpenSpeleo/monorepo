@@ -131,11 +131,6 @@ test("root devcontainer publishes Django independently of editor forwarding", ()
     path.join(ROOT, ".devcontainer/compose.override.yml"),
     "utf8",
   );
-  const stackRestart = readFileSync(
-    path.join(ROOT, ".devcontainer/restart-existing-stack.sh"),
-    "utf8",
-  );
-
   assert.deepEqual(devcontainer.runServices, [
     "postgres",
     "redis",
@@ -146,10 +141,7 @@ test("root devcontainer publishes Django independently of editor forwarding", ()
     "django-webserver",
   ]);
   assert.equal(devcontainer.shutdownAction, "stopCompose");
-  assert.deepEqual(devcontainer.initializeCommand, [
-    "bash",
-    ".devcontainer/restart-existing-stack.sh",
-  ]);
+  assert.equal(devcontainer.initializeCommand, undefined);
   assert.equal(devcontainer.updateRemoteUserUID, false);
   assert.deepEqual(devcontainer.forwardPorts ?? [], []);
   assert.equal(devcontainer.portsAttributes, undefined);
@@ -187,19 +179,6 @@ test("root devcontainer publishes Django independently of editor forwarding", ()
     rootOverride,
     /setup:\n(?:.|\n)*?restart: unless-stopped/,
   );
-  for (const serviceSuffix of [
-    "local_postgres",
-    "local_redis",
-    "gitlab_lab",
-    "rustfs",
-    "local_setup",
-    "local_django",
-    "local_django_webserver",
-  ]) {
-    assert.match(stackRestart, new RegExp(`CONTAINER_PREFIX}[_]${serviceSuffix}`));
-  }
-  assert.match(stackRestart, /docker restart/);
-  assert.match(stackRestart, /docker wait/);
 });
 
 test("root Python integration keeps web virtual and shared libraries editable", () => {
