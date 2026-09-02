@@ -16,7 +16,9 @@ x-monorepo-python-environment: &monorepo_python_environment
 x-monorepo-web-environment: &monorepo_web_environment
   <<: *monorepo_python_environment
   AWS_S3_ENDPOINT_URL: http://rustfs:9000
+  AWS_S3_BROWSER_ENDPOINT_URL: http://localhost:9000
   AWS_S3_TEST_ENDPOINT_URL: http://rustfs:9000
+  AWS_S3_TEST_BROWSER_ENDPOINT_URL: http://localhost:9000
   GITLAB_HOST_URL: gitlab:9080
   GITLAB_TEST_HOST_URL: gitlab:9080
   POSTGRES_HOST: postgres
@@ -25,6 +27,7 @@ x-monorepo-web-environment: &monorepo_web_environment
 x-monorepo-setup-environment: &monorepo_setup_environment
   <<: *monorepo_python_environment
   AWS_S3_ENDPOINT_URL: http://rustfs:9000
+  AWS_S3_BROWSER_ENDPOINT_URL: http://localhost:9000
   GITLAB_SETUP_URL: http://gitlab:9080
   POSTGRES_HOST: postgres
   REDIS_URL: redis://redis:6379/0

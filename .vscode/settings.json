@@ -6,7 +6,7 @@
   "java.gradle.buildServer.enabled": "on",
   "java.import.gradle.enabled": true,
   "java.import.gradle.wrapper.enabled": true,
-  "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
+  "python.defaultInterpreterPath": "/opt/speleodb-venv/bin/python",
   "rust-analyzer.linkedProjects": [
     "${workspaceFolder}/apps/compass_sidecar/Cargo.toml",
     "${workspaceFolder}/packages/python/openspeleo_core/Cargo.toml"
