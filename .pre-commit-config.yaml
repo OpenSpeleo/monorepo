@@ -1,7 +1,8 @@
-# Root hooks validate monorepo orchestration only. Every subtree is excluded
+# Root hooks validate monorepo orchestration only. Every submodule is excluded
 # from these hooks because its own .pre-commit-config.yaml remains
 # authoritative. .prekignore additionally prevents Ariane and Compass project
 # discovery; their hooks must be run from inside those standalone directories.
+# scripts/run-precommit.sh explicitly invokes web and Python submodule checks.
 exclude: >-
   (?x)^(
     apps/mobile/

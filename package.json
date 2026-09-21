@@ -2,11 +2,11 @@
   "name": "speleodb-monorepo",
   "version": "1.0.0",
   "private": true,
-  "description": "Development orchestration for the SpeleoDB git-subtree monorepo",
+  "description": "Development orchestration for the SpeleoDB Git submodule workspace",
   "workspaces": [
     "apps/mobile",
     "apps/web",
-    "packages/typescript/*"
+    "packages/typescript/*/"
   ],
   "scripts": {
     "build": "npm run build:mobile && npm run build:web",
@@ -24,11 +24,13 @@
     "test:monorepo": "node --test tools/*.test.mjs"
   },
   "engines": {
-    "node": ">=22.12.0"
+    "node": "26.*"
   },
   "allowScripts": {
     "@sentry/capacitor": true,
     "core-js": true,
-    "fsevents": true
+    "fsevents": true,
+    "@maplibre/maplibre-gl-style-spec@19.3.3": true,
+    "esbuild@0.28.2": true
   }
 }

@@ -1,7 +1,7 @@
 [dependency-groups]
 dev = [
     "maturin>=1.9,<2",
-    "prek>=0.4,<0.5",
+    "prek>=0.5.3,<1",
     "ruff>=0.15,<1.0",
     "twine",
     "tox",
@@ -10,6 +10,16 @@ dev = [
 
 [tool.uv]
 package = false
+required-version = ">=0.12.17"
+# uv reads dependency overrides from the root project, including for path sources.
+override-dependencies = [
+    { package = { name = "django-celery-beat" }, dependencies = [
+        "django>=5.2,<6.2",
+    ] },
+    { package = { name = "django-js-reverse" }, dependencies = [
+        "django>=5.2,<6.2",
+    ] },
+]
 
 [tool.uv.sources]
 speleodb_website = { path = "./apps/web/", package = false }

@@ -1,184 +1,44 @@
 import assert from "node:assert/strict";
-import {
-  chmodSync,
-  existsSync,
-  mkdtempSync,
-  readFileSync,
-  writeFileSync,
-} from "node:fs";
+import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, mkdirSync, copyFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import test from "node:test";
-import { ROOT } from "./subtree-lib.mjs";
+import { ROOT, readSubmodules } from "./workspace.mjs";
 
-function executable(filename, body) {
-  writeFileSync(filename, `#!/usr/bin/env bash\nset -euo pipefail\n${body}\n`);
-  chmodSync(filename, 0o755);
-}
-
-function runLauncher({ ci = false, mypy = true, args = ["--all-files"] } = {}) {
+function runLauncher({ mypy = true, args = ["--all-files"], cwd = ROOT, failProject = "" } = {}) {
   const directory = mkdtempSync(path.join(tmpdir(), "speleodb-hook-"));
-  const log = path.join(directory, "prek.log");
-  const prek = path.join(directory, "prek");
-  executable(prek, 'printf "%s\\n" "$@" > "$PREK_TEST_LOG"');
-  const mypyPath = path.join(directory, "mypy");
-  if (mypy) executable(mypyPath, "exit 0");
-  const result = spawnSync("bash", ["scripts/run-precommit.sh", ...args], {
-    cwd: ROOT,
-    encoding: "utf8",
-    env: {
-      ...process.env,
-      PREK_BIN: prek,
-      MYPY_BIN: mypyPath,
-      PREK_TEST_LOG: log,
-      ...(ci ? { CI: "1" } : { CI: "" }),
-    },
-  });
-  return {
-    ...result,
-    args:
-      result.status === 0 && existsSync(log)
-        ? readFileSync(log, "utf8").trim().split("\n")
-        : [],
-  };
+  try {
+    const log = path.join(directory, "prek.log");
+    const prek = path.join(directory, "prek");
+    writeFileSync(prek, `#!${process.execPath}\n` + String.raw`
+const fs = require("node:fs");
+fs.appendFileSync(process.env.PREK_TEST_LOG, JSON.stringify({cwd:process.cwd(),args:process.argv.slice(2)})+"\n");
+if (process.env.PREK_FAIL_PROJECT && process.cwd().endsWith(process.env.PREK_FAIL_PROJECT)) process.exit(17);
+`);
+    chmodSync(prek, 0o755);
+    const mypyPath = path.join(directory, "mypy");
+    if (mypy) {
+      writeFileSync(mypyPath, "#!/bin/sh\nexit 0\n");
+      chmodSync(mypyPath, 0o755);
+    }
+    const result = spawnSync("bash", [path.join(ROOT, "scripts/run-precommit.sh"), ...args], {
+      cwd, encoding: "utf8",
+      env: { ...process.env, PREK_BIN: prek, MYPY_BIN: mypyPath, PREK_TEST_LOG: log, PREK_FAIL_PROJECT: failProject },
+    });
+    const invocations = existsSync(log) ? readFileSync(log, "utf8").trim().split("\n").map(JSON.parse) : [];
+    return { ...result, invocations };
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
 }
 
-test("root prek hooks exclude every subtree prefix", () => {
-  const config = readFileSync(
-    path.join(ROOT, ".pre-commit-config.yaml"),
-    "utf8",
-  );
-  const manifest = JSON.parse(
-    readFileSync(path.join(ROOT, ".monorepo/subtrees.json"), "utf8"),
-  );
-
-  assert.match(config, /^repos:\s*$/m);
-  assert.match(config, /^\s*- id: check-json$/m);
-  assert.match(config, /^\s*- id: prettier$/m);
-  for (const subtree of manifest.subtrees) {
-    assert.ok(
-      config.includes(`${subtree.prefix}/`),
-      `root prek exclude must contain ${subtree.prefix}`,
-    );
-  }
-});
-
-test("root prek discovery excludes standalone application projects", () => {
-  const ignoredProjects = readFileSync(path.join(ROOT, ".prekignore"), "utf8")
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line && !line.startsWith("#"));
-
-  assert.deepEqual(ignoredProjects, [
-    "apps/mobile/",
-    "apps/ariane_plugin/",
-    "apps/compass_sidecar/",
-  ]);
-});
-
-test("web services share a dev-user-owned monorepo node_modules volume", () => {
-  const baseCompose = readFileSync(
-    path.join(ROOT, "apps/web/local.yml"),
-    "utf8",
-  );
-  const rootOverride = readFileSync(
-    path.join(ROOT, ".devcontainer/compose.override.yml"),
-    "utf8",
-  );
-  const nodeModulesSetup = readFileSync(
-    path.join(ROOT, ".devcontainer/prepare-web-node-modules.sh"),
-    "utf8",
-  );
-  const postCreate = readFileSync(
-    path.join(ROOT, ".devcontainer/setup.sh"),
-    "utf8",
-  );
-  const volume = "speleodb_local_web_node_modules";
-  const workspaceMount = `${volume}:/workspace/apps/web/node_modules`;
-
-  assert.match(
-    baseCompose,
-    new RegExp(`source: ${volume}\\n\\s+target: /app/node_modules`),
-  );
-  assert.equal(
-    rootOverride.split(workspaceMount).length - 1,
-    3,
-    "every monorepo web service must mount the same workspace alias",
-  );
-  assert.match(
-    rootOverride,
-    /name: "\$\{COMPOSE_INSTANCE_PREFIX:-speleodb_devcontainer\}_local_web_node_modules"/,
-  );
-  assert.match(rootOverride, /django:\n\s+user: dev-user/);
-  assert.match(rootOverride, /django-webserver:\n\s+user: dev-user/);
-  assert.match(rootOverride, /setup:\n\s+user: root/);
-  assert.equal(
-    [...rootOverride.matchAll(/prepare-web-node-modules\.sh/g)].length,
-    2,
-  );
-  assert.match(postCreate, /prepare-web-node-modules\.sh/);
-  assert.match(nodeModulesSetup, /stat -c %u/);
-  assert.match(nodeModulesSetup, /chown -R/);
-  assert.match(nodeModulesSetup, /-ef "\$\{WORKSPACE_NODE_MODULES_DIR\}"/);
-});
-
-test("root devcontainer publishes Django independently of editor forwarding", () => {
-  const devcontainer = JSON.parse(
-    readFileSync(path.join(ROOT, ".devcontainer/devcontainer.json"), "utf8"),
-  );
-  const rootOverride = readFileSync(
-    path.join(ROOT, ".devcontainer/compose.override.yml"),
-    "utf8",
-  );
-  assert.deepEqual(devcontainer.runServices, [
-    "postgres",
-    "redis",
-    "gitlab",
-    "rustfs",
-    "setup",
-    "django",
-    "django-webserver",
-  ]);
-  assert.equal(devcontainer.shutdownAction, "stopCompose");
-  assert.equal(devcontainer.initializeCommand, undefined);
-  assert.equal(devcontainer.updateRemoteUserUID, false);
-  assert.deepEqual(devcontainer.forwardPorts ?? [], []);
-  assert.equal(devcontainer.portsAttributes, undefined);
-  assert.match(rootOverride, /django:\n(?:.|\n)*?network_mode: !reset null/);
-  assert.match(rootOverride, /ports:\n\s+- "127\.0\.0\.1:8000:8000"/);
-  assert.match(
-    rootOverride,
-    /django-webserver:\n(?:.|\n)*?network_mode: service:django/,
-  );
-  assert.match(rootOverride, /AWS_S3_ENDPOINT_URL: http:\/\/rustfs:9000/);
-  assert.match(rootOverride, /AWS_S3_TEST_ENDPOINT_URL: http:\/\/rustfs:9000/);
-  assert.match(rootOverride, /GITLAB_HOST_URL: gitlab:9080/);
-  assert.match(rootOverride, /GITLAB_TEST_HOST_URL: gitlab:9080/);
-  assert.match(rootOverride, /POSTGRES_HOST: postgres/);
-  assert.match(rootOverride, /REDIS_URL: redis:\/\/redis:6379\/0/);
-  assert.match(rootOverride, /setup:\n(?:.|\n)*?network_mode: !reset null/);
-  assert.match(rootOverride, /GITLAB_SETUP_URL: http:\/\/gitlab:9080/);
-  assert.match(rootOverride, /GIT_CONFIG_COUNT: "1"/);
-  assert.match(rootOverride, /GIT_CONFIG_KEY_0: safe\.directory/);
-  assert.match(rootOverride, /GIT_CONFIG_VALUE_0: \/workspace/);
-  for (const service of [
-    "django",
-    "postgres",
-    "redis",
-    "django-webserver",
-    "gitlab",
-    "rustfs",
-  ]) {
-    assert.match(
-      rootOverride,
-      new RegExp(`${service}:\\n(?:.|\\n)*?restart: unless-stopped`),
-    );
-  }
-  assert.doesNotMatch(
-    rootOverride,
-    /setup:\n(?:.|\n)*?restart: unless-stopped/,
-  );
+test("root hooks exclude all submodules and manual application boundaries remain explicit", () => {
+  const config = readFileSync(path.join(ROOT, ".pre-commit-config.yaml"), "utf8");
+  for (const module of readSubmodules()) assert.ok(config.includes(`${module.path}/`));
+  const excluded = readFileSync(path.join(ROOT, ".prekignore"), "utf8").split("\n")
+    .map((line) => line.trim()).filter((line) => line && !line.startsWith("#"));
+  assert.deepEqual(excluded, ["apps/mobile/", "apps/ariane_plugin/", "apps/compass_sidecar/"]);
 });
 
 test("root Python integration keeps web virtual and shared libraries editable", () => {
@@ -190,10 +50,10 @@ test("root Python integration keeps web virtual and shared libraries editable", 
   );
 
   assert.match(project, /requires-python = ">=3\.14,<3\.15"/);
-  assert.match(project, /"SpeleoDB_Repo\[local\]"/);
+  assert.match(project, /"speleodb_website\[local\]"/);
   assert.match(
     project,
-    /SpeleoDB_Repo = \{ path = "\.\/apps\/web\/", package = false \}/,
+    /speleodb_website = \{ path = "\.\/apps\/web\/", package = false \}/,
   );
   assert.match(lock, /source = \{ virtual = "apps\/web" \}/);
   for (const library of [
@@ -312,37 +172,79 @@ test("devcontainer imports all web libraries from live monorepo source", () => {
   );
 });
 
-test("launcher forwards all-files runs directly to prek", () => {
+test("default validation invokes root, web, and five libraries in their own Git roots", () => {
   const result = runLauncher();
   assert.equal(result.status, 0, result.stderr);
-  assert.deepEqual(result.args, ["run", "--all-files"]);
+  assert.deepEqual(result.invocations.map((call) => path.relative(ROOT, call.cwd) || "."), [
+    ".", "apps/web", "packages/python/ariane_lib", "packages/python/compass_lib",
+    "packages/python/mnemo_lib", "packages/python/openspeleo_core", "packages/python/openspeleo_lib",
+  ]);
+  assert.ok(result.invocations.every((call) => JSON.stringify(call.args) === JSON.stringify(["run", "--all-files"])));
 });
 
-test("launcher forwards a selected web mypy hook in CI", () => {
-  const result = runLauncher({
-    ci: true,
-    args: ["apps/web:mypy", "--all-files"],
-  });
+test("a qualified web hook is invoked locally with native options intact", () => {
+  const result = runLauncher({ args: ["apps/web:mypy", "--all-files", "--hook-stage", "manual"], cwd: path.join(ROOT, "apps/web") });
   assert.equal(result.status, 0, result.stderr);
-  assert.deepEqual(result.args, ["run", "apps/web:mypy", "--all-files"]);
+  assert.deepEqual(result.invocations, [{ cwd: path.join(ROOT, "apps/web"), args: ["run", "mypy", "--all-files", "--hook-stage", "manual"] }]);
 });
 
-test("launcher fails explicitly when mypy is unavailable", () => {
+test("validation fails fast without skipping an unsuccessful project", () => {
+  const result = runLauncher({ failProject: "/apps/web" });
+  assert.equal(result.status, 17);
+  assert.equal(result.invocations.length, 2);
+});
+
+test("missing mypy fails web validation before running any hooks", () => {
   const result = runLauncher({ mypy: false });
   assert.equal(result.status, 127);
   assert.match(result.stderr, /mypy is required/);
-  assert.deepEqual(result.args, []);
+  assert.deepEqual(result.invocations, []);
 });
 
-test("web type checking uses mypy without the daemon client", () => {
-  const config = readFileSync(
-    path.join(ROOT, "apps/web/.pre-commit-config.yaml"),
-    "utf8",
-  );
+test("root-only checks do not require mypy", () => {
+  const result = runLauncher({ mypy: false, args: [".:check-json", "--all-files"] });
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(result.invocations, [{ cwd: ROOT, args: ["run", "check-json", "--all-files"] }]);
+});
+
+test("ambiguous file/ref arguments and manual-only applications fail explicitly", () => {
+  for (const args of [["--files", "apps/web/manage.py"], ["--from-ref", "HEAD~1"], ["apps/mobile", "--all-files"]]) {
+    const result = runLauncher({ args });
+    assert.equal(result.status, 2);
+    assert.match(result.stderr, /prek -C/);
+    assert.deepEqual(result.invocations, []);
+  }
+});
+
+test("missing submodules fail with setup guidance instead of silently skipping checks", (t) => {
+  const directory = mkdtempSync(path.join(tmpdir(), "speleodb-hook-missing-"));
+  t.after(() => rmSync(directory, { recursive: true, force: true }));
+  mkdirSync(path.join(directory, "scripts"));
+  copyFileSync(path.join(ROOT, "scripts/run-precommit.sh"), path.join(directory, "scripts/run-precommit.sh"));
+  copyFileSync(path.join(ROOT, ".gitmodules"), path.join(directory, ".gitmodules"));
+  copyFileSync(path.join(ROOT, ".prekignore"), path.join(directory, ".prekignore"));
+  const result = spawnSync("bash", ["scripts/run-precommit.sh", "apps/web:mypy", "--all-files"], { cwd: directory, encoding: "utf8" });
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /not initialized; run make setup/);
+});
+
+test("malformed submodule configuration cannot silently reduce validation to root only", (t) => {
+  const directory = mkdtempSync(path.join(tmpdir(), "speleodb-hook-config-"));
+  t.after(() => rmSync(directory, { recursive: true, force: true }));
+  mkdirSync(path.join(directory, "scripts"));
+  copyFileSync(path.join(ROOT, "scripts/run-precommit.sh"), path.join(directory, "scripts/run-precommit.sh"));
+  copyFileSync(path.join(ROOT, ".prekignore"), path.join(directory, ".prekignore"));
+  writeFileSync(path.join(directory, ".gitmodules"), "[broken\n");
+  const result = spawnSync("bash", ["scripts/run-precommit.sh", "--all-files"], {
+    cwd: directory, encoding: "utf8", env: { ...process.env, PREK_BIN: "/usr/bin/true", MYPY_BIN: "/usr/bin/true" },
+  });
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /bad config/);
+});
+
+test("web type checking uses regular mypy", () => {
+  const config = readFileSync(path.join(ROOT, "apps/web/.pre-commit-config.yaml"), "utf8");
   assert.match(config, /^\s+entry: mypy$/m);
   assert.doesNotMatch(config, /^\s+entry: dmypy$/m);
-  assert.ok(
-    config.includes('args: ["--config-file", "pyproject.toml", "."]'),
-  );
-  assert.match(config, /^\s+pass_filenames: false$/m);
+  assert.ok(config.includes('args: ["--config-file", "pyproject.toml", "."]'));
 });

@@ -1,34 +1,31 @@
 SHELL := /bin/bash
 
-SUBTREE_FLAG = $(if $(strip $(SUBTREE)),--subtree $(SUBTREE),)
 STACK ?= speleodb_fresh
 ROOT_PYTHON ?= 3.14
 
 .PHONY: setup doctor pre-commit dev-web dev-web-isolated stop-web-isolated \
 	install-js install-python \
 	build-web build-mobile sync-mobile check-rust build-compass-ui \
-	build-compass-tauri build-core build-ariane test-monorepo \
-	subtree-status subtree-pull subtree-push subtree-push-execute \
-	subtree-branch subtree-pr
+	build-compass-tauri build-core build-ariane test-monorepo
 
 setup:
-	node tools/subtree.mjs setup
+	node tools/workspace.mjs setup
 	@test -f apps/web/.envs/test.env || cp apps/web/.envs/test.env.dist apps/web/.envs/test.env
 	npm ci
 	UV_PROJECT_ENVIRONMENT="$${UV_PROJECT_ENVIRONMENT:-$(CURDIR)/.venv}" uv sync --python $(ROOT_PYTHON) --all-extras --frozen
 
 doctor:
-	node tools/subtree.mjs doctor
+	node tools/workspace.mjs doctor
 
 pre-commit:
 	bash scripts/run-precommit.sh --all-files
 
 dev-web:
-	@if [[ -x /start && -d /app ]]; then cd /app && exec /start; else cd apps/web && docker compose -f local.yml up django-webserver; fi
+	@if [[ -x /start && -d /app ]]; then cd /app && exec /start; else cd apps/web && docker compose -f local.yml up django-webserver celery-worker celery-beat kanchi; fi
 
 dev-web-isolated:
 	@[[ "$(STACK)" =~ ^[a-zA-Z0-9][a-zA-Z0-9_.-]*$$ ]] || { echo "Invalid STACK: $(STACK)" >&2; exit 2; }
-	COMPOSE_INSTANCE_PREFIX="$(STACK)" docker compose -p "$(STACK)" -f apps/web/local.yml up --build django-webserver
+	COMPOSE_INSTANCE_PREFIX="$(STACK)" docker compose -p "$(STACK)" -f apps/web/local.yml up --build django-webserver celery-worker celery-beat kanchi
 
 stop-web-isolated:
 	@[[ "$(STACK)" =~ ^[a-zA-Z0-9][a-zA-Z0-9_.-]*$$ ]] || { echo "Invalid STACK: $(STACK)" >&2; exit 2; }
@@ -67,23 +64,3 @@ build-ariane:
 
 test-monorepo:
 	npm run test:monorepo
-
-subtree-status:
-	node tools/subtree.mjs status $(SUBTREE_FLAG)
-
-subtree-pull:
-	node tools/subtree.mjs pull $(SUBTREE_FLAG)
-
-subtree-push:
-	node tools/subtree.mjs push $(SUBTREE_FLAG)
-
-subtree-push-execute:
-	node tools/subtree.mjs push --execute $(SUBTREE_FLAG)
-
-subtree-branch:
-	@test -n "$(BRANCH)" || { echo "BRANCH is required" >&2; exit 2; }
-	node tools/subtree.mjs branch "$(BRANCH)"
-
-subtree-pr:
-	@test -n "$(TITLE)" || { echo "TITLE is required" >&2; exit 2; }
-	node tools/subtree.mjs pr $(SUBTREE_FLAG) --title "$(TITLE)" $(if $(strip $(BODY)),--body "$(BODY)",)

@@ -1,6 +1,0 @@
-{
-    "python-envs.pythonProjects": [],
-    "makefile.configureOnOpen": false,
-    "rust-analyzer.cargo.targetDir": true,
-    "python-envs.defaultEnvManager": "ms-python.python:system"
-}

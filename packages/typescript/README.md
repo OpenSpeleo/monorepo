@@ -6,4 +6,4 @@ directory.
 Each package must have its own `package.json`; the root npm workspace will
 discover it through `packages/typescript/*`.
 
-Application-specific code remains in the owning subtree under `apps/`.
+Application-specific code remains in the owning submodule under `apps/`.

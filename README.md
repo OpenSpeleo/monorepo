@@ -2,30 +2,28 @@
 
 This repository is the integration workspace for the SpeleoDB applications and
 shared libraries. It combines nine standalone Git repositories under `apps/` and
-`packages/python/` using Git subtrees, then adds root-level tooling for
+`packages/python/` using Git submodules, then adds root-level tooling for
 cross-project development, validation, editors, and containers.
 
-Every subtree remains independently cloneable, buildable, releasable, and
+Every submodule remains independently cloneable, buildable, releasable, and
 deployable. The monorepo is an integration surface; it does not replace the
 standalone repositories or their release pipelines.
 
 ## Core model and invariants
 
-- Product source lives inside a subtree prefix. Root orchestration files are
-  monorepo-only and never appear in a subtree split.
-- The monorepo `origin` stores integration history. It is not a product
-  deployment target.
-- Product branches are published with `git subtree push`, normally through the
-  safe subtree Make targets.
-- Pulls from upstream subtree repositories are squashed into the monorepo.
-- Independent subtree changes should use separate commits. A genuinely coupled
-  change may span multiple subtrees in one commit.
-- Each subtree keeps its standalone manifests, lockfiles, nested `.gitmodules`,
-  CI, and release configuration.
-- Root npm and Python integration locks are additional contracts; they do not
-  replace subtree locks.
-- No Git hook or pre-commit hook is installed or configured by this repository.
-  Validation is always invoked explicitly.
+- Each product is an independent Git repository at its existing application or
+  package path. The parent records its exact commit as a gitlink.
+- `.gitmodules` is the authoritative mapping of names, paths, URLs, and tracking
+  branches. There is no separate repository manifest or publishing wrapper.
+- Normal recursive checkout uses recorded commits. Following a newer upstream
+  branch is an explicit update, reviewed and recorded in the parent repository.
+- Product edits are committed and published from their own repositories. Root
+  orchestration changes and gitlink updates belong to the monorepo.
+- The monorepo `origin` stores integration history; it is not a product
+  deployment target. Each submodule's `origin` is its original upstream.
+- Standalone manifests, locks, nested submodules, CI, and release configuration
+  remain authoritative. Root npm and Python locks cover integration only.
+- No Git or pre-commit hook is installed. Validation is invoked explicitly.
 - Deployments and releases remain in the standalone repositories. Root CI only
   validates integration.
 
@@ -33,81 +31,77 @@ standalone repositories or their release pipelines.
 
 ### Applications
 
-| ID                | Prefix                 | Technology and purpose                               | Upstream base |
-| ----------------- | ---------------------- | ---------------------------------------------------- | ------------- |
-| `mobile`          | `apps/mobile`          | React, Ionic, Vite, Capacitor mobile application     | `main`        |
-| `web`             | `apps/web`             | Django application with Vite-managed frontend assets | `master`      |
-| `compass_sidecar` | `apps/compass_sidecar` | Rust, Yew, Trunk, and Tauri Compass sidecar          | `main`        |
-| `ariane_plugin`   | `apps/ariane_plugin`   | Java/JavaFX Ariane plugin                            | `master`      |
+| Name                   | Path                   | Technology and purpose                               | Upstream base |
+| ---------------------- | ---------------------- | ---------------------------------------------------- | ------------- |
+| `apps/ariane_plugin`   | `apps/ariane_plugin`   | Java/JavaFX Ariane plugin                            | `master`      |
+| `apps/compass_sidecar` | `apps/compass_sidecar` | Rust, Yew, Trunk, and Tauri Compass sidecar          | `master`      |
+| `apps/mobile`          | `apps/mobile`          | React, Ionic, Vite, Capacitor mobile application     | `master`      |
+| `apps/web`             | `apps/web`             | Django application with Vite-managed frontend assets | `master`      |
 
 ### Shared packages
 
-| ID                | Prefix                            | Purpose                                        | Upstream base |
-| ----------------- | --------------------------------- | ---------------------------------------------- | ------------- |
-| `ariane_lib`      | `packages/python/ariane_lib`      | Ariane Python helpers                          | `master`      |
-| `compass_lib`     | `packages/python/compass_lib`     | Compass Python helpers                         | `master`      |
-| `mnemo_lib`       | `packages/python/mnemo_lib`       | Mnemo Python helpers                           | `master`      |
-| `openspeleo_core` | `packages/python/openspeleo_core` | Python package backed by a Rust/PyO3 extension | `master`      |
-| `openspeleo_lib`  | `packages/python/openspeleo_lib`  | Shared OpenSpeleo Python library               | `master`      |
-| n/a               | `packages/typescript/*`           | Reserved for future shared TypeScript packages | n/a           |
+| Name                              | Path                              | Purpose                                        | Upstream base |
+| --------------------------------- | --------------------------------- | ---------------------------------------------- | ------------- |
+| `packages/python/ariane_lib`      | `packages/python/ariane_lib`      | Ariane Python helpers                          | `master`      |
+| `packages/python/compass_lib`     | `packages/python/compass_lib`     | Compass Python helpers                         | `master`      |
+| `packages/python/mnemo_lib`       | `packages/python/mnemo_lib`       | Mnemo Python helpers                           | `master`      |
+| `packages/python/openspeleo_core` | `packages/python/openspeleo_core` | Python package backed by a Rust/PyO3 extension | `master`      |
+| `packages/python/openspeleo_lib`  | `packages/python/openspeleo_lib`  | Shared OpenSpeleo Python library               | `master`      |
+| n/a                               | `packages/typescript/*`           | Reserved for future shared TypeScript packages | n/a           |
 
 ### Root orchestration files
 
-| Path                                 | Role                                                                               |
-| ------------------------------------ | ---------------------------------------------------------------------------------- |
-| `.monorepo/subtrees.json`            | Committed manifest for the nine subtree prefixes, remotes, URLs, and base branches |
-| `tools/subtree.mjs`                  | Dependency-free subtree setup, status, pull, push, branch, and PR CLI              |
-| `tools/subtree-lib.mjs`              | Manifest validation, selector, branch, and Git safety helpers                      |
-| `tools/*.test.mjs`                   | Unit tests for subtree safety and pre-commit policy                                |
-| `Makefile`                           | Canonical developer commands                                                       |
-| `package.json` / `package-lock.json` | Root npm workspace and integrated JavaScript lock                                  |
-| `.npmrc`                             | Nested npm installation strategy                                                   |
-| `pyproject.toml` / `uv.lock`         | Python 3.14 integration environment for virtual web plus editable shared libraries |
-| `rust-toolchain.toml`                | Shared Rust channel, components, and WebAssembly target                            |
-| `.vscode/`                           | Root editor recommendations and language-server settings                           |
-| `.devcontainer/`                     | Web-only devcontainer layered on `apps/web/local.yml`                              |
-| `.github/workflows/ci.yml`           | Root integration-only CI                                                           |
-| `.gitmodules`                        | Fully prefixed paths for Ariane's two nested API gitlinks                          |
-| `.pre-commit-config.yaml`            | Root-only sanity and Markdown checks plus the prek workspace anchor                |
-| `.prekignore`                        | Root prek discovery exclusions for Mobile, Ariane, and Compass                     |
-| `scripts/run-precommit.sh`           | Explicit prek launcher with local/CI mypy policy                                   |
-
-`.monorepo/` is not a second repository, a cache, or generated state. It is a
-normal committed configuration directory containing one manifest. `unirepo` 0.6
-cannot discover nested prefixes such as `apps/mobile`, so the local CLI reads
-this manifest instead.
+| Path                                      | Role                                                     |
+| ----------------------------------------- | -------------------------------------------------------- |
+| `.devcontainer/`                          | Web devcontainer layered on `apps/web/local.yml`         |
+| `.github/workflows/ci.yml`                | Integration validation only                              |
+| `.gitmodules`                             | Authoritative mapping for the nine top-level submodules  |
+| `.npmrc`                                  | Nested npm installation strategy                         |
+| `.pre-commit-config.yaml` / `.prekignore` | Root checks and project boundaries                       |
+| `.vscode/`                                | Root editor recommendations and language-server settings |
+| `Makefile`                                | Canonical developer build and validation commands        |
+| `package.json` / `package-lock.json`      | Root npm workspace and integration lock                  |
+| `pyproject.toml` / `uv.lock`              | Python 3.14 integration environment                      |
+| `rust-toolchain.toml`                     | Rust channel, components, and WebAssembly target         |
+| `scripts/run-precommit.sh`                | Explicit root, web, and Python-package checks            |
+| `tools/*.test.mjs`                        | Workspace safety and explicit pre-commit launcher tests  |
+| `tools/workspace.mjs`                     | Dependency-free initialization and environment diagnosis |
 
 ## Upstream mapping
 
-The manifest is authoritative. `make setup` creates remote names equal to the
-prefixes shown below.
+`.gitmodules` is authoritative. Each initialized submodule has its own `origin`.
+All nine tracking branches are currently `master`.
 
-| ID                | Remote                            | URL                                                      |
-| ----------------- | --------------------------------- | -------------------------------------------------------- |
-| `mobile`          | `apps/mobile`                     | `git@github.com:OpenSpeleo/SpeleoDB-App.git`             |
-| `web`             | `apps/web`                        | `git@github.com:OpenSpeleo/SpeleoDB.git`                 |
-| `compass_sidecar` | `apps/compass_sidecar`            | `git@github.com:OpenSpeleo/speleodb_compass_sidecar.git` |
-| `ariane_plugin`   | `apps/ariane_plugin`              | `https://github.com/OpenSpeleo/SpeleoDB-Ariane-Plugin`   |
-| `ariane_lib`      | `packages/python/ariane_lib`      | `git@github.com:OpenSpeleo/pytool_ariane_lib.git`        |
-| `compass_lib`     | `packages/python/compass_lib`     | `git@github.com:OpenSpeleo/pytool_compass_lib.git`       |
-| `mnemo_lib`       | `packages/python/mnemo_lib`       | `git@github.com:OpenSpeleo/pytool_mnemo_lib.git`         |
-| `openspeleo_core` | `packages/python/openspeleo_core` | `git@github.com:OpenSpeleo/openspeleo_core.git`          |
-| `openspeleo_lib`  | `packages/python/openspeleo_lib`  | `git@github.com:OpenSpeleo/pytool_openspeleo_lib.git`    |
+| Name                              | Path                              | URL                                                      |
+| --------------------------------- | --------------------------------- | -------------------------------------------------------- |
+| `apps/ariane_plugin`              | `apps/ariane_plugin`              | `https://github.com/OpenSpeleo/SpeleoDB-Ariane-Plugin`   |
+| `apps/compass_sidecar`            | `apps/compass_sidecar`            | `git@github.com:OpenSpeleo/speleodb_compass_sidecar.git` |
+| `apps/mobile`                     | `apps/mobile`                     | `git@github.com:OpenSpeleo/SpeleoDB-App.git`             |
+| `apps/web`                        | `apps/web`                        | `git@github.com:OpenSpeleo/SpeleoDB.git`                 |
+| `packages/python/ariane_lib`      | `packages/python/ariane_lib`      | `git@github.com:OpenSpeleo/pytool_ariane_lib.git`        |
+| `packages/python/compass_lib`     | `packages/python/compass_lib`     | `git@github.com:OpenSpeleo/pytool_compass_lib.git`       |
+| `packages/python/mnemo_lib`       | `packages/python/mnemo_lib`       | `git@github.com:OpenSpeleo/pytool_mnemo_lib.git`         |
+| `packages/python/openspeleo_core` | `packages/python/openspeleo_core` | `git@github.com:OpenSpeleo/openspeleo_core.git`          |
+| `packages/python/openspeleo_lib`  | `packages/python/openspeleo_lib`  | `git@github.com:OpenSpeleo/pytool_openspeleo_lib.git`    |
 
 ## Prerequisites
 
 | Tool       | Expected version or role                                                               |
 | ---------- | -------------------------------------------------------------------------------------- |
-| Git        | A version containing `git subtree`                                                     |
-| Node.js    | Node 22; `.node-version` contains `22`, and the root package requires at least 22.12   |
+| Git        | A version supporting recursive submodules                                              |
+| Node.js    | Node 26, as recorded in `.node-version`                                                |
 | npm        | Installed with Node and capable of npm workspaces                                      |
-| uv         | Python environment, project, and lock manager                                          |
+| uv         | Version 0.12.17 or newer; Python environment, project, and lock manager                |
 | Python     | Python 3.14 for the root integration project and `apps/web`                            |
 | Rust       | Stable; the committed toolchain adds `rustfmt`, `clippy`, and `wasm32-unknown-unknown` |
 | Java       | JDK 25 for Ariane                                                                      |
-| GitHub CLI | Optional; required only by `make subtree-pr`                                           |
+| GitHub CLI | Optional; for upstream pull requests                                                   |
 | Docker     | Optional on the host; required for the devcontainer and the host-side web stack        |
 | VS Code    | Optional; required for the documented WebNative, Gradle, and devcontainer experience   |
+
+All `.node-version` files, including the root, mobile, web, and any future
+projects, must remain byte-for-byte identical. `npm run test:monorepo` checks
+this invariant across the workspace and its submodules.
 
 The SSH remotes and Ariane submodules require working GitHub SSH credentials.
 
@@ -126,422 +120,210 @@ If the clone already exists, the same two Make targets are sufficient.
 
 `make setup` is idempotent and performs these operations:
 
-1. Validates `.monorepo/subtrees.json`.
-2. Adds missing subtree remotes and corrects URLs that differ from the manifest.
-3. Records subtree base-branch metadata in local Git configuration.
-4. Synchronizes Ariane submodule URLs and initializes only missing submodules.
-   An already-initialized checkout is not reset to the indexed gitlink.
-5. Creates ignored `apps/web/.envs/test.env` from `apps/web/.envs/test.env.dist`
-   when it does not exist.
-6. Runs root `npm ci`.
-7. Runs the frozen root Python 3.14 integration lock into `.venv`, or into the
-   environment named by `UV_PROJECT_ENVIRONMENT`. This includes the virtual web
-   application's local dependencies and all editable shared packages.
+1. Reads and validates `.gitmodules`.
+2. Synchronizes configured submodule URLs and initializes missing submodules
+   recursively at their recorded commits. Existing branches, dirty worktrees,
+   and intentional gitlink differences are preserved, including inside Ariane.
+3. Creates ignored `apps/web/.envs/test.env` from its committed template when
+   absent.
+4. Runs root `npm ci`.
+5. Syncs the frozen root Python 3.14 integration environment into `.venv`, or
+   `UV_PROJECT_ENVIRONMENT` when set, including the virtual web dependency and
+   editable shared libraries.
 
-`make setup` does **not** install a Git hook, change `core.hooksPath`, commit,
-pull subtree history, push anything, or deploy anything.
+Setup does not install hooks, advance existing checkouts, commit, publish, or
+start a deployment.
 
-`make doctor` checks:
+`make doctor` checks Git, Node, npm, uv, Cargo, Rust, and Java; configured URLs;
+actual repository roots; and recursive submodule initialization. Checkout
+changes are reported without resetting them.
 
-- `git`, `node`, `npm`, `uv`, `cargo`, `rustc`, and `java`;
-- the exact remote URL and local directory for every manifest entry;
-- initialization of Ariane's recursive submodules;
-- `gh` as a non-fatal warning because it is needed only for PR creation.
+## Environment files
+
+All paths below are relative to the monorepo root. Each local environment file
+is Git-ignored; its corresponding `.dist` template is committed. Copy the
+template when the local file is missing, then fill in the values required by
+that application or package. Preserve existing local files.
+
+| Local environment file                                        | Committed template                                                 |
+| ------------------------------------------------------------- | ------------------------------------------------------------------ |
+| `apps/ariane_plugin/org.speleodb.ariane.plugin.speleodb/.env` | `apps/ariane_plugin/org.speleodb.ariane.plugin.speleodb/.env.dist` |
+| `apps/compass_sidecar/.env`                                   | `apps/compass_sidecar/.env.dist`                                   |
+| `apps/mobile/.env`                                            | `apps/mobile/.env.dist`                                            |
+| `apps/web/.env`                                               | `apps/web/.env.dist`                                               |
+| `apps/web/.envs/test.env`                                     | `apps/web/.envs/test.env.dist`                                     |
+| `packages/python/compass_lib/.env`                            | `packages/python/compass_lib/.env.dist`                            |
+| `packages/python/openspeleo_lib/.env`                         | `packages/python/openspeleo_lib/.env.dist`                         |
+
+The web Compose stack also loads these committed environment files directly;
+they have no separate `.dist` templates:
+
+| Environment file           | Purpose                                  |
+| -------------------------- | ---------------------------------------- |
+| `apps/web/.envs/.django`   | Local Django container configuration     |
+| `apps/web/.envs/.postgres` | Local PostgreSQL container configuration |
+
+`make setup` creates only the missing web test environment file. The
+devcontainer's setup service creates both missing web environment files and
+updates its managed local-service settings. Other applications and packages
+require their own local environment configuration. There is no root `.env` file;
+the devcontainer mounts `apps/web` at `/app`, so `apps/web/.env` is available
+there as `/app/.env`.
 
 ## Command reference
 
 ### Setup and validation
 
-| Command              | Effect                                                                |
-| -------------------- | --------------------------------------------------------------------- |
-| `make setup`         | Configure remotes/submodules and install the root npm/uv environments |
-| `make doctor`        | Validate tools, remotes, prefixes, and submodules                     |
-| `make pre-commit`    | Run root-discovered prek projects except Mobile, Ariane, and Compass  |
-| `make test-monorepo` | Run the root Node orchestration and launcher tests                    |
+| Command              | Effect                                                             |
+| -------------------- | ------------------------------------------------------------------ |
+| `make setup`         | Initialize missing submodules and install root npm/uv environments |
+| `make doctor`        | Validate tools, URLs, repository roots, and submodules             |
+| `make pre-commit`    | Run explicit root, web, and five Python-package prek checks        |
+| `make test-monorepo` | Run the root Node orchestration and launcher tests                 |
 
 ### Application and package builds
 
-| Command                                       | Effect                                                                                                         |
-| --------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| `make dev-web`                                | In the container, run `/start` from `/app`; on the host, start `django-webserver` through `apps/web/local.yml` |
-| `make dev-web-isolated STACK=speleodb_fresh`  | Build and start a fresh project-prefixed web stack without using existing volumes                              |
-| `make stop-web-isolated STACK=speleodb_fresh` | Stop that isolated stack while preserving all of its volumes                                                   |
-| `make build-web`                              | Build the web Vite assets through the root npm workspace                                                       |
-| `make build-mobile`                           | Type-check and build the mobile Vite application                                                               |
-| `make sync-mobile`                            | Run Capacitor sync from the mobile workspace                                                                   |
-| `make check-rust`                             | Cargo-check Compass and `openspeleo_core`, all targets and features, with locks                                |
-| `make build-compass-ui`                       | Build the Compass Trunk frontend in release mode                                                               |
-| `make build-compass-tauri`                    | Compile the Compass Tauri application in release mode without bundling                                         |
-| `make build-core`                             | Build the `openspeleo_core` Python wheel with maturin                                                          |
-| `make build-ariane`                           | Run Ariane's Gradle `build test` tasks                                                                         |
+| Command                                       | Effect                                                                                                                             |
+| --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `make dev-web`                                | In the container, run `/start` from `/app`; on the host, start Django, Celery worker/beat, and Kanchi through `apps/web/local.yml` |
+| `make dev-web-isolated STACK=speleodb_fresh`  | Build and start a fresh project-prefixed web stack without using existing volumes                                                  |
+| `make stop-web-isolated STACK=speleodb_fresh` | Stop that isolated stack while preserving all of its volumes                                                                       |
+| `make build-web`                              | Build the web Vite assets through the root npm workspace                                                                           |
+| `make build-mobile`                           | Type-check and build the mobile Vite application                                                                                   |
+| `make sync-mobile`                            | Run Capacitor sync from the mobile workspace                                                                                       |
+| `make check-rust`                             | Cargo-check Compass and `openspeleo_core`, all targets and features, with locks                                                    |
+| `make build-compass-ui`                       | Build the Compass Trunk frontend in release mode                                                                                   |
+| `make build-compass-tauri`                    | Compile the Compass Tauri application in release mode without bundling                                                             |
+| `make build-core`                             | Build the `openspeleo_core` Python wheel with maturin                                                                              |
+| `make build-ariane`                           | Run Ariane's Gradle `build test` tasks                                                                                             |
 
-### Subtree operations
+## Workspace tooling
 
-| Command                                            | Effect                                                                                     |
-| -------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| `make subtree-status`                              | Show base branch, effective push branch, state, and prefix for all subtrees                |
-| `make subtree-status SUBTREE=mobile`               | Show one selected subtree                                                                  |
-| `make subtree-branch BRANCH=feature/name`          | Create/switch the monorepo branch and record it as the default subtree push branch         |
-| `make subtree-pull SUBTREE=mobile`                 | Squash-pull `mobile` from its configured base branch; requires a completely clean worktree |
-| `make subtree-pull`                                | Squash-pull every manifest subtree; requires a completely clean worktree                   |
-| `make subtree-push SUBTREE=mobile`                 | Print the exact `git subtree push` command without executing it                            |
-| `make subtree-push`                                | Dry-run all changed subtrees                                                               |
-| `make subtree-push-execute SUBTREE=mobile`         | Push the selected clean subtree to its effective branch                                    |
-| `make subtree-pr SUBTREE=mobile TITLE="feat: ..."` | Open the upstream PR after its subtree branch has been pushed                              |
+`tools/workspace.mjs` provides only `setup` and `doctor`; prefer their Make
+wrappers. Direct `node tools/workspace.mjs setup` initializes missing submodules
+only, while `make setup` also performs the environment steps above. Git branch,
+update, commit, and publication operations use native Git commands.
+`node tools/workspace.mjs doctor --submodules-only` checks repository
+configuration and initialization without requiring every application toolchain.
 
-`SUBTREE` accepts the manifest ID (`mobile`), full prefix (`apps/mobile`), or a
-unique basename. The Node CLI also accepts repeated or comma-separated
-`--subtree` selectors.
-
-## Complete `tools/` reference
-
-`tools/` is intentionally small and contains exactly four files. It is not a
-location for generated output or downloaded executables.
-
-| File                                | Intended use                                                                           |
-| ----------------------------------- | -------------------------------------------------------------------------------------- |
-| `tools/subtree.mjs`                 | Executable repository-local subtree CLI                                                |
-| `tools/subtree-lib.mjs`             | Internal JavaScript module used by the CLI and its unit tests                          |
-| `tools/subtree.test.mjs`            | Unit tests for manifest, selection, prefix, branch-command, and remote safety behavior |
-| `tools/precommit-launcher.test.mjs` | Unit tests for prek launcher forwarding and workspace policy                           |
-
-### `tools/subtree.mjs`
-
-Run it with Node from the repository root. Invoking it without a command prints
-its usage text:
+Run the focused tests or the complete suite:
 
 ```bash
-node tools/subtree.mjs
-```
-
-The direct interface is:
-
-```bash
-node tools/subtree.mjs setup
-node tools/subtree.mjs doctor
-node tools/subtree.mjs status [--subtree <selector>]
-node tools/subtree.mjs pull [--subtree <selector>]
-node tools/subtree.mjs push [--subtree <selector>]
-node tools/subtree.mjs push --execute [--subtree <selector>]
-node tools/subtree.mjs branch <branch-name>
-node tools/subtree.mjs pr --title <title> [--body <body>] [--subtree <selector>]
-```
-
-Options and selection behavior:
-
-- repeat `--subtree` to select several repositories;
-- pass comma-separated selectors to one `--subtree` option;
-- selectors accept a manifest ID, complete prefix, or unique basename;
-- `status` and `pull` select all subtrees when no selector is supplied;
-- `push` and `pr` select only changed subtrees when no selector is supplied;
-- `push` is a dry run unless `--execute` is explicitly present;
-- `branch` takes its branch name as a positional argument;
-- `pr` requires `--title`, accepts an optional `--body`, and requires `gh`;
-- invalid manifests, selectors, remotes, dirty-state violations, detached HEAD,
-  and failed child commands produce a non-zero exit.
-
-The Make targets are preferred because they provide stable, memorable command
-names. One distinction matters: direct `node tools/subtree.mjs setup` performs
-only Git remote/config/submodule setup, while `make setup` additionally creates
-the web test environment, installs the root npm workspace, and syncs the root
-Python integration environment.
-
-Direct and Make equivalents:
-
-| Direct CLI                                                       | Preferred interface                                |
-| ---------------------------------------------------------------- | -------------------------------------------------- |
-| `node tools/subtree.mjs setup`                                   | Git portion of `make setup`                        |
-| `node tools/subtree.mjs doctor`                                  | `make doctor`                                      |
-| `node tools/subtree.mjs status --subtree mobile`                 | `make subtree-status SUBTREE=mobile`               |
-| `node tools/subtree.mjs pull --subtree mobile`                   | `make subtree-pull SUBTREE=mobile`                 |
-| `node tools/subtree.mjs push --subtree mobile`                   | `make subtree-push SUBTREE=mobile`                 |
-| `node tools/subtree.mjs push --execute --subtree mobile`         | `make subtree-push-execute SUBTREE=mobile`         |
-| `node tools/subtree.mjs branch feature/name`                     | `make subtree-branch BRANCH=feature/name`          |
-| `node tools/subtree.mjs pr --subtree mobile --title "feat: ..."` | `make subtree-pr SUBTREE=mobile TITLE="feat: ..."` |
-
-### `tools/subtree-lib.mjs`
-
-This file is an internal ES module, not a shell command. It provides:
-
-- repository and manifest paths;
-- manifest loading and validation;
-- ID/prefix/basename selector resolution;
-- GitHub URL normalization and repository-slug extraction;
-- protection against `origin` and origin-equivalent URLs;
-- subtree path-boundary filtering and push-argument construction;
-- shell-free child-process and Git execution helpers;
-- Git config, current-branch, and effective-push-branch resolution;
-- last-import and changed/dirty subtree state calculation;
-- executable discovery for `doctor` and PR support.
-
-Tooling code and tests may import it directly:
-
-```js
-import { loadManifest, selectSubtrees } from "./tools/subtree-lib.mjs";
-
-const { subtrees } = loadManifest();
-const [mobile] = selectSubtrees(subtrees, ["mobile"]);
-```
-
-It is an internal API: application and package code must not depend on it. Any
-behavioral change requires matching CLI tests and documentation updates.
-
-### `tools/subtree.test.mjs`
-
-Run only the subtree unit tests with:
-
-```bash
-node --test tools/subtree.test.mjs
-```
-
-They verify nested-prefix manifest acceptance, duplicate and `origin` rejection,
-selector forms, prefix-boundary detection, safe subtree-push arguments, origin
-URL protection, and protocol-independent GitHub URL handling. They do not fetch,
-pull, push, or mutate real remotes.
-
-### `tools/precommit-launcher.test.mjs`
-
-Run only the launcher-policy tests with:
-
-```bash
+node --test tools/workspace.test.mjs
 node --test tools/precommit-launcher.test.mjs
-```
-
-The test creates temporary fake `prek` and `mypy` executables and invokes
-`scripts/run-precommit.sh`. It covers argument forwarding, missing-mypy failure,
-the non-daemon web mypy hook, and the committed Mobile/Ariane/Compass discovery
-boundary. It also locks the shared Linux `node_modules` mount used by workspace
-web hooks, the virtual-web root lock contract, and the devcontainer's live
-Python source overlay. It installs no hook and does not run real project hooks.
-
-Run every file under `tools/` that has the `.test.mjs` suffix with either:
-
-```bash
-node --test tools/*.test.mjs
-npm run test:monorepo
 make test-monorepo
 ```
 
-The latter two commands are the canonical aggregate interface.
+Workspace tests use temporary local repositories and do not publish or depend on
+network access. Launcher tests use fake binaries and never install hooks.
+`tools/devcontainer.test.mjs` checks repository trust, privilege transitions,
+and merged Compose service contracts; its Compose check skips when the CLI is
+unavailable. Do not place generated files, caches, or downloaded executables in
+`tools/`.
 
-## Complete Git subtree workflow
+## Working with submodules
 
-### Branches
-
-Start product work on a named branch rather than pushing from `master`:
-
-```bash
-make subtree-branch BRANCH=feature/offline-map
-```
-
-This switches to an existing branch or creates it, then writes
-`monorepo.pushBranch=feature/offline-map` in local Git configuration. The same
-branch name can be split and pushed to more than one upstream repository for a
-coupled change.
-
-The effective push branch is chosen in this order:
-
-1. `monorepo.subtree.<id>.pushBranch`
-2. `unirepo.subtree.<prefix>.pushBranch` for compatibility
-3. `monorepo.pushBranch`
-4. the current monorepo branch
-
-Override a single subtree when necessary:
-
-```bash
-git config monorepo.subtree.mobile.pushBranch feature/mobile-only-name
-```
-
-The manifest's `baseBranch` is used for pulls and as the PR base. It is not
-automatically the push branch.
-
-### Understanding subtree status
-
-```bash
-make subtree-status
-```
-
-The state column means:
-
-- `clean`: no committed or uncommitted changes since the most recent subtree
-  import trailer;
-- `changed`: committed changes exist under the prefix;
-- `uncommitted`: staged, unstaged, or untracked changes currently exist under
-  the prefix.
-
-When no selector is passed, push and PR commands automatically select subtrees
-reported as changed or uncommitted. Explicit selection is safer when preparing a
-single upstream PR.
-
-### Commit boundaries
-
-Keep independent histories understandable:
-
-```bash
-# One subtree
-git add apps/mobile/
-git commit -m "feat(mobile): add offline map recovery"
-
-# A different independent subtree gets a different commit
-git add packages/python/openspeleo_core/
-git commit -m "fix(openspeleo_core): validate station identifiers"
-
-# Only when two subtree changes are inseparable
-git add packages/python/openspeleo_core/ apps/compass_sidecar/
-git commit -m "feat: expose and consume normalized survey data"
-```
-
-Keep root orchestration changes such as `Makefile`, `.github/`,
-`.devcontainer/`, `.vscode/`, `.monorepo/`, and this README in separate monorepo
-commits whenever practical. They cannot be included in a subtree PR because
-subtree splitting contains only the selected prefix.
-
-Before committing, inspect both staged and unstaged scope:
+### Inspecting and reproducing a checkout
 
 ```bash
 git status --short
-git diff --check
-git diff --cached --check
-git diff --cached --name-only
+git diff --submodule=log
+git diff --cached --submodule=log
+git submodule status --recursive
+git submodule foreach --recursive 'git status --short'
 ```
 
-### Pulling upstream changes
+A leading `-` in submodule status means uninitialized; `+` means its checkout
+differs from the recorded gitlink. Neither is permission to discard work.
 
-Subtree pulls require the entire worktree to be clean because each pull creates
-a squash integration commit:
-
-```bash
-git status --short
-make subtree-pull SUBTREE=web
-```
-
-Review the resulting history and tree:
-
-```bash
-git show --stat --oneline HEAD
-make subtree-status SUBTREE=web
-```
-
-Pull all nine only when intentionally updating the whole integration tree:
-
-```bash
-make subtree-pull
-```
-
-If Ariane changed either gitlink, synchronize and initialize it afterward:
+After checking that all affected repositories are clean, reproduce the commits
+recorded by the parent with:
 
 ```bash
 git submodule sync --recursive
 git submodule update --init --recursive
 ```
 
-### Pushing subtree branches
+This normally leaves submodules at detached HEADs. It does not follow their
+configured branch tips. `make setup` is safer when existing development
+checkouts must remain untouched: it initializes only missing repositories.
 
-Always preview first:
+### Updating one repository from upstream
 
-```bash
-make subtree-status
-make subtree-push SUBTREE=mobile
-```
-
-The preview prints a command shaped like:
+Review the child repository's state before switching branches or pulling:
 
 ```bash
-git subtree push --prefix=apps/mobile apps/mobile feature/offline-map
+git -C apps/mobile status --short
+git -C apps/mobile fetch origin
+git -C apps/mobile switch master
+git -C apps/mobile pull --ff-only origin master
+git diff --submodule=log -- apps/mobile
 ```
 
-Execute only after the selected subtree has no uncommitted files:
+Use the branch configured in `.gitmodules`. All nine currently use `master`; use
+`main` only after verifying that upstream no longer has `master` and updating
+the configuration. Resolve diverged histories explicitly; do not reset or stash
+automatically. Refresh integration locks and run relevant builds when upstream
+manifests change. An updated checkout becomes reproducible only after the parent
+records its gitlink.
+
+### Developing and publishing changes
+
+Create a branch inside each repository you intend to edit:
 
 ```bash
-make subtree-push-execute SUBTREE=mobile
+git -C apps/mobile switch -c feature/offline-map
 ```
 
-The execute target refuses a dirty selected subtree. The CLI rejects a remote
-named `origin` and also rejects any subtree URL that normalizes to the monorepo
-origin URL. It cannot publish root orchestration files because `git subtree`
-splits only the selected prefix.
-
-### Opening upstream PRs
-
-Authenticate the GitHub CLI, push the subtree branch, then create the PR:
+The parent's branch and each child branch are independent. Inspect staged and
+unstaged changes inside the child before committing. When publication is
+explicitly requested, commit and push the child first, then record that
+reachable commit in the parent:
 
 ```bash
-gh auth status
-make subtree-push-execute SUBTREE=mobile
-make subtree-pr SUBTREE=mobile \
-  TITLE="feat: add offline map recovery" \
-  BODY="Builds and tests pass from the monorepo integration workspace."
+git -C apps/mobile add <changed-files>
+git -C apps/mobile commit -m "feat: add offline map recovery"
+git -C apps/mobile push -u origin feature/offline-map
+git add apps/mobile
+git commit -m "chore: update mobile integration revision"
 ```
 
-The PR targets the manifest base branch and uses the effective push branch as
-its head. One command is run per selected subtree, producing one upstream PR per
-standalone repository. The branch must already exist in that repository.
+These examples are manual publication steps, not setup behavior. Never stage,
+commit, push, open a PR, merge, or deploy without explicit authorization. Keep
+independent parent gitlink updates and root orchestration changes separate when
+practical. A coupled integration commit may record several child commits, but
+each child retains its own history and upstream PR.
 
-### Monorepo origin versus product upstreams
+Before a parent commit, check that every recorded child commit is available from
+its configured upstream; a local-only gitlink breaks other clones and CI. Use
+Git inside the child for product pushes. The monorepo's `origin` is for
+integration changes only.
 
-Normal Git operations against `origin` are for collaborating on the integration
-repository and its root orchestration. They do not publish an application or
-package release. Product source reaches its standalone repository through the
-subtree workflow above; deployments and releases then run there.
+### Adding another repository
 
-Never substitute `origin` into a raw subtree push.
+Use native `git submodule add --name <name> -b <branch> <url> <path>` after
+verifying the original upstream and branch. Update applicable npm/uv sources,
+root hook exclusions, explicit launcher coverage, editor/container paths, tests,
+CI, and documentation. Preserve standalone manifests, locks, and instructions. A
+path or URL change requires a reviewed migration, including existing local
+checkouts and nested Git metadata.
 
-### Raw Git fallback
+## Ariane's nested submodules
 
-If the local CLI cannot be used, verify the mapping in the manifest first:
-
-```bash
-git subtree pull --prefix=<prefix> <remote-or-url> <base-branch> --squash
-git subtree push --prefix=<prefix> <remote-or-url> <push-branch>
-```
-
-The pull still requires a clean worktree, and the push remote must not be the
-monorepo `origin`.
-
-### Adding another standalone repository
-
-1. Choose a unique ID, nested prefix, remote name, URL, and base branch.
-2. Add the entry to `.monorepo/subtrees.json`.
-3. Run `node tools/subtree.mjs setup` to create the remote.
-4. Import the repository:
-
-   ```bash
-   git subtree add --prefix=<prefix> <remote> <base-branch> --squash
-   ```
-
-5. Add the prefix to the npm workspace or root editable uv sources if
-   applicable.
-6. Preserve the imported repository's standalone lockfiles and instructions.
-7. Extend `tools/subtree.test.mjs`, CI, the repository tables, and build targets
-   as needed.
-
-Do not use `unirepo add` for nested prefixes in this repository.
-
-## Ariane gitlinks and submodules
-
-`apps/ariane_plugin` contains two gitlinks:
+`apps/ariane_plugin` owns these two API gitlinks:
 
 - `com.arianesline.ariane.plugin.api`
 - `com.arianesline.cavelib.api`
 
-The root `.gitmodules` uses fully prefixed paths so recursive checkout works
-from the monorepo root. `apps/ariane_plugin/.gitmodules` deliberately keeps
-paths relative to the standalone Ariane repository. Both files are necessary; do
-not replace one with the other.
+They are declared only in `apps/ariane_plugin/.gitmodules`, with paths relative
+to Ariane. The root `.gitmodules` declares Ariane itself; do not duplicate its
+children there. Recursive initialization reaches both APIs through Ariane.
 
-To update a gitlink, fetch and check out the intended reachable commit inside
-the submodule, then commit the gitlink as an Ariane subtree change:
-
-```bash
-git -C apps/ariane_plugin/com.arianesline.ariane.plugin.api fetch origin
-git -C apps/ariane_plugin/com.arianesline.ariane.plugin.api checkout <commit>
-git add apps/ariane_plugin/com.arianesline.ariane.plugin.api
-git commit -m "chore(ariane_plugin): update plugin API gitlink"
-```
-
-A leading `+` in `git submodule status` means the checked-out submodule commit
-differs from the gitlink recorded in the index. Commit the intended pointer; do
-not reset it casually.
+For an API update, fetch and check out the intended reachable commit inside the
+API repository. Commit its pointer in Ariane, publish Ariane, then record
+Ariane's new pointer in the monorepo, with explicit authorization for each
+publication action. A deliberate pointer difference must never be reset by
+setup.
 
 ## JavaScript workspace and WebNative
 
@@ -549,11 +331,13 @@ The private root npm workspace contains:
 
 - `apps/mobile`
 - `apps/web`
-- future packages matching `packages/typescript/*`
+- future package directories matching `packages/typescript/*/`
 
 The root package is not published. WebNative officially understands npm
 workspaces, so opening the repository root lets the extension discover both
-applications. Select `mobile` in WebNative and use Build or Run → Web.
+applications. Keep the trailing slash in the reserved TypeScript workspace glob:
+it prevents the extension from treating `packages/typescript/README.md` as a
+project. Select `mobile` in WebNative and use Build or Run → Web.
 
 For a terminal-based mobile development server:
 
@@ -628,7 +412,9 @@ npm run install:web
 ## Python integration project
 
 The root uv project is deliberately **not** a uv workspace. It requires Python
-3.14 and combines two integration roles:
+3.14 and uv 0.12.17 or newer, enforced by `tool.uv.required-version`. The web
+dependency uses metadata-style overrides that older uv releases cannot resolve.
+Root CI pins uv 0.12.17. The project combines two integration roles:
 
 - all five `packages/python/*` projects are editable path dependencies;
 - `apps/web` is a virtual path dependency with its `local` extra enabled.
@@ -663,10 +449,10 @@ cd apps/web
 python manage.py runserver
 ```
 
-Each Python subtree retains its own `pyproject.toml` and `uv.lock` for
-standalone extraction. Because there is no parent uv workspace, package-local
-commands operate on the package's own lock. A shared-package dependency update
-therefore requires both the package lock and the root integration lock:
+Each Python submodule retains its own `pyproject.toml` and `uv.lock` for
+standalone use. Because there is no parent uv workspace, package-local commands
+operate on the package's own lock. A shared-package dependency update therefore
+requires both the package lock and the root integration lock:
 
 ```bash
 cd packages/python/compass_lib
@@ -677,8 +463,8 @@ uv sync --all-extras --frozen
 ```
 
 `apps/web` still owns an independent standalone project and lock. Neither file
-contains a path back to `packages/python`, so extraction continues to resolve
-the published versions from PyPI:
+contains a path back to `packages/python`, so standalone clones continue to
+resolve the published versions from PyPI:
 
 ```bash
 cd apps/web
@@ -688,7 +474,8 @@ uv run pytest
 ```
 
 The `local` web environment provides `mypy`, which executes the authoritative
-web type-checking hook.
+web type-checking hook. Root development dependencies allow `prek>=0.5.3,<1` to
+remain compatible with the web repository's prek 0.5.3 pin.
 
 ## Rust and native builds
 
@@ -713,12 +500,13 @@ make build-core
 ```
 
 Compass UI builds require Trunk. Tauri compilation requires the Linux WebKit,
-SSL, app-indicator, Clang, and pkg-config libraries installed by the
-devcontainer. `build-compass-tauri` compiles with `--no-bundle`, so it validates
-the application without producing platform installers.
+SSL, app-indicator, Clang, and pkg-config libraries installed by the Linux CI
+job or separately on the host. `build-compass-tauri` compiles with
+`--no-bundle`, so it validates the application without producing platform
+installers.
 
 `build-core` runs `uv run --frozen maturin build` from
-`packages/python/openspeleo_core` and writes the wheel under that subtree's
+`packages/python/openspeleo_core` and writes the wheel under that submodule's
 ignored build output.
 
 ## Java and Gradle
@@ -772,16 +560,21 @@ not duplicate the web application's container definition.
 - Root workspace: `/workspace`
 - Standalone web mount: `/app`
 - Remote user: `dev-user`
-- Existing Django image, `/entrypoint`, `/start`, PostgreSQL, Redis, RustFS,
-  environment files, and host networking: preserved
+- Existing Django image, `/entrypoint`, `/start`, PostgreSQL, Redis, RustFS, and
+  environment files: preserved; standalone host networking is replaced by
+  Compose networking in the root devcontainer
 
 The two mounts are intentional. Root tooling operates from `/workspace`, while
 the existing web image and scripts continue to see the web application at
 `/app`, exactly as in its standalone repository.
 
-The `django`, `django-webserver`, and one-shot `setup` services also receive the
-monorepo at `/workspace`. Their `PYTHONPATH` places these live source roots
-ahead of the published packages installed in the standalone image:
+The devcontainer `PYTHONPATH` also includes `/app`, so shells opened at
+`/workspace` can source `/entrypoint` and import `compose.wait_for_postgres`.
+
+The `django`, `django-webserver`, `celery-worker`, `celery-beat`, and one-shot
+`setup` services also receive the monorepo at `/workspace`. Their `PYTHONPATH`
+places these live source roots ahead of the published packages installed in the
+standalone image:
 
 - `/workspace/packages/python/mnemo_lib`
 - `/workspace/packages/python/compass_lib`
@@ -817,20 +610,27 @@ keeps `apps/web/compose/Dockerfile` authoritative without duplicating it. Do not
 replace the link with a copied Dockerfile; remove it only after the supported
 Zed stable release correctly resolves Compose Dockerfile paths.
 
-The root override gives every service a `speleodb_devcontainer_*` container name
-by default. This is separate from the standalone file's `speleodb_*` default, so
-stopped standalone containers can remain preserved while VS Code creates its
-`web` Compose project. Set `COMPOSE_INSTANCE_PREFIX` before invoking the Dev
-Containers CLI only when a different devcontainer prefix is required.
+The root override sets the Compose project name to `speleodb-monorepo`. Its
+containers, locally built images, network, and volumes use the
+`speleodb-monorepo-` prefix. VS Code respects the explicit Compose project name.
+An explicit `-p` or `COMPOSE_PROJECT_NAME` overrides the project name;
+`COMPOSE_INSTANCE_PREFIX` can separately override container and Node-volume
+prefixes. Standalone web resources retain their own names.
+
+Changing the project name does not rename or migrate existing Docker resources.
+An existing `web` project and its volumes remain intact; the new project uses
+separate volumes. Migrate any existing development data deliberately before
+switching projects if you need to retain it in the new stack. Rebuild/reopen the
+devcontainer to use the new configuration after resolving any old port bindings.
 
 Compose overlays `/app/node_modules` with a devcontainer-specific named volume,
-`speleodb_devcontainer_local_web_node_modules` by default. Its name follows
+`speleodb-monorepo-web-node-modules` by default. Its name follows
 `COMPOSE_INSTANCE_PREFIX`, so it never aliases the standalone Compose volume.
 Linux native npm packages installed by `/start` therefore cannot overwrite a
 macOS or Windows host installation or inherit root ownership from a standalone
 webserver.
 
-That same volume is mounted at `/workspace/apps/web/node_modules` in all three
+That same volume is mounted at `/workspace/apps/web/node_modules` in the
 monorepo application services. Prek executes the web project from the monorepo
 path, so both paths must resolve to the same Linux dependencies. The setup job
 initializes an empty or legacy volume for `dev-user`; the workspace and
@@ -841,11 +641,11 @@ startup.
 
 ### Automatic local-service setup
 
-Both the `django` workspace and `django-webserver` wait for the one-shot `setup`
-service. That job starts only after PostgreSQL, Redis, and RustFS pass their
-health checks and GitLab passes `/-/readiness?all=1`. GitLab can take many
-minutes on its first boot; the application containers remain pending rather than
-starting with incomplete dependencies.
+The Django workspace, webserver, Celery worker, and scheduler wait for the
+one-shot `setup` service. That job starts only after PostgreSQL, Redis, and
+RustFS pass their health checks and GitLab passes `/-/readiness?all=1`. GitLab
+can take many minutes on its first boot; the application containers remain
+pending rather than starting with incomplete dependencies.
 
 Before the application setup begins, `.devcontainer/sync-openspeleo-core.sh`
 synchronizes the core package into `/opt/speleodb-venv` with
@@ -923,14 +723,14 @@ revalidates and refreshes its generated GitLab values when switching stacks.
 
 ### Container provisioning
 
-The root devcontainer starts only the web application. The existing
-`apps/web/compose/Dockerfile` installs Python, Node, and the web application's
-dependencies. Its monorepo-only build argument additionally installs the minimal
-stable Rust toolchain required by the web application's editable
-`openspeleo_core` dependency; it does not install Compass, Tauri, Trunk,
-wasm-pack, Java, or mobile tooling. The Compose `setup` service prepares that
-native dependency before web infrastructure, migrations, buckets, GitLab
-provisioning, and local-superuser initialization.
+The root devcontainer starts the web application, Celery worker and scheduler,
+and Kanchi task monitoring. The existing `apps/web/compose/Dockerfile` installs
+Python, Node, and the web application's dependencies. Its monorepo-only build
+argument additionally installs the minimal stable Rust toolchain required by the
+web application's editable `openspeleo_core` dependency; it does not install
+Compass, Tauri, Trunk, wasm-pack, Java, or mobile tooling. The Compose `setup`
+service prepares that native dependency before web infrastructure, migrations,
+buckets, GitLab provisioning, and local-superuser initialization.
 
 Post-create adds `/app/.devcontainer/bashrc.override.sh` to the remote user's
 shell configuration idempotently, installs `openspeleo_core` as editable into
@@ -939,7 +739,8 @@ four web-library imports resolve below `/workspace/packages/python`. It does not
 run root `make setup`, perform root npm installation, call `cargo install`, or
 build Mobile, Compass, Tauri, or Ariane.
 
-After changing Rust code, refresh the extension and restart the webserver:
+After changing Rust code, refresh the extension and restart the webserver and
+Celery services to load the new module:
 
 ```bash
 /workspace/.devcontainer/sync-openspeleo-core.sh
@@ -961,11 +762,19 @@ then runs the editable installation as `dev-user`:
 | Port   | Use    |
 | ------ | ------ |
 | `8000` | Django |
+| `8765` | Kanchi |
 
-The root devcontainer publishes this port on the host loopback interface through
-Docker Compose. The standalone web Compose file retains host networking, while
-the root override uses a shared workspace/webserver network namespace so editors
-without `forwardPorts` support can still use `http://localhost:8000`.
+The root devcontainer publishes these ports on the host loopback interface
+through Docker Compose. The standalone web Compose file retains host networking,
+while the root override uses a shared workspace/webserver network namespace so
+editors without `forwardPorts` support can still use `http://localhost:8000`.
+Kanchi is available at `http://localhost:8765`. Upstream dependency mappings
+remain in place for PostgreSQL, Redis, GitLab, RustFS, and optional test Redis;
+browser-facing GitLab and artifact URLs depend on them. Test presigned artifact
+URLs use `http://rustfs:9000` because tests make HTTP requests from inside
+Compose; development browser artifact links continue using
+`http://localhost:9000`. Celery uses Redis database 1 for its broker, while the
+application cache uses database 0.
 
 All long-running root devcontainer services use `restart: unless-stopped`, so a
 webserver or dependency terminated by resource pressure restarts without an
@@ -973,9 +782,11 @@ editor-driven Compose recreation. The `setup` container is intentionally a
 one-shot job: `Exited (0)` is its healthy completed state. Remote UID rewriting
 is disabled so the workspace, setup job, and webserver consistently use
 `dev-user` UID/GID 1000 on their shared cache and Node volumes. Git receives
-`safe.directory=/workspace` through the container environment, so Zed and
-terminal Git commands trust the bind-mounted monorepo immediately, before any
-post-create lifecycle command runs. GitLab-backed tests create unpredictable
+explicit `safe.directory` entries for `/workspace`, all nine submodule roots,
+and Ariane's nested API repositories through the container environment. This
+trust is preserved when setup drops privileges. Run Git at `/workspace/...` so
+relative submodule Git metadata resolves correctly; `/app` remains the
+application and npm execution path. GitLab-backed tests create unpredictable
 repository paths below `.workdir`; the private test env enables Git wildcard
 trust only in pytest processes so those isolated bind-mounted clones work
 without broadening trust for normal development commands.
@@ -990,8 +801,9 @@ persistent across service rebuilds and recreation.
 
 ### Starting and using the container
 
-In VS Code, run **Dev Containers: Reopen in Container**. After the post-create
-step completes:
+Initialize the submodules on the host with `make setup` before opening the
+devcontainer. In VS Code, run **Dev Containers: Reopen in Container**. After the
+post-create step completes:
 
 ```bash
 make dev-web
@@ -1029,31 +841,43 @@ npx -y @devcontainers/cli build --workspace-folder .
 ```
 
 The standalone Compose container names default to `speleodb_*`; the root
-devcontainer override defaults to `speleodb_devcontainer_*`. For any additional
+devcontainer override defaults to `speleodb-monorepo-*`. For any additional
 isolated stack, always set both a Compose project name and
 `COMPOSE_INSTANCE_PREFIX`, or use the documented `make dev-web-isolated` target.
 Do not remove another developer's containers or volumes without their
 permission.
 
-The container intentionally omits Rust, Cargo, Tauri CLI, Trunk, wasm-pack,
-Java, Gradle, mobile tooling, Android Studio/SDK, Xcode, signing credentials,
-and device tooling.
+The container intentionally omits Tauri CLI, Trunk, wasm-pack, Java, Gradle,
+mobile tooling, Android Studio/SDK, Xcode, signing credentials, and device
+tooling.
 
 ## Explicit pre-commit and mypy policy
 
-The root `.pre-commit-config.yaml` establishes the prek workspace and validates
-root orchestration with generic sanity checks and Prettier for Markdown. Its
-top-level `exclude` explicitly lists all nine subtree prefixes, preventing root
-hooks from scanning files owned by nested projects or incorrectly treating their
-VS Code and devcontainer JSONC files as strict JSON. Each subtree's nested
-configuration remains authoritative after extraction. When adding a subtree, add
-its prefix to this exclusion as well as the subtree manifest.
+Root `.pre-commit-config.yaml` validates only root orchestration. Its exclusions
+cover all nine `.gitmodules` paths, and `.prekignore` retains the Mobile,
+Ariane, and Compass boundaries. Each repository's configuration remains
+authoritative. Prek does not discover submodules, so the explicit launcher runs
+root, web, and each of the five Python repositories separately:
 
-Root `.prekignore` additionally excludes `apps/mobile/`, `apps/ariane_plugin/`,
-and `apps/compass_sidecar/` from workspace discovery. Root `prek` and
-`make pre-commit` therefore never enter those projects. Mobile must use its own
-Node environment, while Ariane and Compass depend on their own Java or Rust
-toolchains. Run their hooks from inside the standalone directories:
+```bash
+make pre-commit
+```
+
+The launcher finds the root from its own location, locates prek and regular mypy
+(never dmypy), and fails if a required executable or repository is missing. Mypy
+is required when selecting web checks. Options apply to the selected repository
+invocations; `apps/web:mypy` is translated to the local `mypy` hook:
+
+```bash
+uv sync --project apps/web --extra local --frozen
+bash scripts/run-precommit.sh apps/web:mypy --all-files
+```
+
+The optional leading selector is `[<project>[:<hook>]]`, followed by native
+options. Use `.` for all root hooks or `.:check-json` for one root hook.
+Omitting the selector runs all eligible repositories. File/ref/config arguments
+are rejected because paths and commits are repository-specific; run those checks
+inside the owning repository. Mobile, Ariane, and Compass checks remain manual:
 
 ```bash
 (cd apps/mobile && prek run --all-files)
@@ -1061,52 +885,27 @@ toolchains. Run their hooks from inside the standalone directories:
 (cd apps/compass_sidecar && prek run --all-files)
 ```
 
-Mobile's and Compass's hook configurations are at their repository roots;
-Ariane's belongs to its plugin module. Starting inside the respective
-configuration directory finds the local `.pre-commit-config.yaml` before the
-monorepo root, so root `.prekignore` does not disable any standalone command.
-
-No hook is installed. Specifically, setup does not run `prek install`,
-`pre-commit install`, or configure `core.hooksPath`.
-
-Run validation explicitly:
-
-```bash
-make pre-commit
-```
-
-This invokes `scripts/run-precommit.sh --all-files` for root-discovered
-projects. The launcher locates `prek` and `mypy`, including `mypy` from the web
-virtual environment, then forwards the requested hook selectors and options
-unchanged. A missing executable is an explicit environment error rather than a
-local skip. CI installs the full web local environment and requires `mypy`
-before running the hook.
-
-To execute only web mypy:
-
-```bash
-uv sync --project apps/web --extra local --frozen
-bash scripts/run-precommit.sh apps/web:mypy --all-files
-```
+No command installs a Git hook or configures `core.hooksPath`.
 
 ## Root CI
 
 `.github/workflows/ci.yml` runs for pull requests and pushes to `master`. Every
-job checks out Ariane submodules recursively. Root CI validates only; it does
-not publish packages, deploy applications, create releases, push subtrees, or
+job checks out all submodules recursively. Root CI validates only; it does not
+publish packages, deploy applications, create releases, push repositories, or
 open PRs.
 
 | Job             | Environment                            | Validation                                                                                                                                       |
 | --------------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `orchestration` | Ubuntu, Node from `.node-version`      | Root Node tests, manifest JSON parsing, `git diff --check`                                                                                       |
-| `javascript`    | Ubuntu, Node 22, root npm cache        | Root `npm ci`, app-local Capacitor assertion, both app lints, mobile build and Capacitor sync, mobile/web tests, both builds, clean tracked diff |
+| `orchestration` | Ubuntu, Node from `.node-version`      | Root Node tests, submodule configuration validation, `git diff --check`                                                                          |
+| `javascript`    | Ubuntu, Node 26, root npm cache        | Root `npm ci`, app-local Capacitor assertion, both app lints, mobile build and Capacitor sync, mobile/web tests, both builds, clean tracked diff |
 | `rust`          | Ubuntu 24.04, stable Rust, Python 3.14 | Tauri system libraries, Trunk/Tauri CLI, both Cargo checks, Compass Trunk build, Tauri no-bundle compile, maturin wheel, clean tracked diff      |
 | `ariane`        | Ubuntu, Temurin JDK 25                 | Ariane Gradle 9.4.1 `build test`, clean tracked diff                                                                                             |
 | `web-mypy`      | Ubuntu, Python 3.14                    | Root integration-lock check, generated test env, standalone web sync, required `mypy`, authoritative mypy hook, clean tracked diff               |
 
-The `git diff --exit-code` steps intentionally fail when formatting, lock,
-Capacitor sync, or build hooks modify tracked files. Regenerate and commit those
-changes locally rather than allowing CI to hide them.
+The root and recursive child checks inspect both staged and unstaged diffs and
+intentionally fail when formatting, lock, Capacitor sync, or build hooks modify
+tracked files. Regenerate and commit those changes locally rather than allowing
+CI to hide them.
 
 ## Local CI-equivalent checks
 
@@ -1146,42 +945,23 @@ Install the web local environment, then rerun the hook:
 uv sync --project apps/web --extra local --frozen
 ```
 
-### Subtree pull refuses to run
+### A submodule is missing or differs from its recorded commit
 
-Pull requires a completely clean worktree, including root files and untracked
-files. Commit, intentionally stash, or remove only your own generated files,
-then retry.
+Run `git submodule status --recursive` and `make doctor`. Use `make setup` to
+initialize missing checkouts while preserving initialized development state.
+Only run `git submodule update --init --recursive` when you intentionally want
+to reproduce the parent's recorded commits and affected checkouts are clean.
 
-### Subtree push uses the wrong branch
+### Detached HEAD inside a submodule
 
-Inspect the effective branch:
-
-```bash
-make subtree-status SUBTREE=mobile
-git config --get monorepo.subtree.mobile.pushBranch
-git config --get monorepo.pushBranch
-git branch --show-current
-```
-
-Set the shared branch with `make subtree-branch`, or configure the subtree
-override explicitly.
-
-### Detached HEAD
-
-Subtree publication requires a named branch. Switch or create one before status,
-push, or PR operations:
+A detached HEAD is normal after pinned checkout. Before editing, create a branch
+in that repository:
 
 ```bash
-make subtree-branch BRANCH=feature/name
+git -C apps/mobile switch -c feature/name
 ```
 
-### Ariane submodule is missing
-
-```bash
-git submodule sync --recursive
-git submodule update --init --recursive
-make doctor
-```
+Do not switch or reset a checkout until any existing work is understood.
 
 ### Capacitor dependency is not app-local
 
@@ -1201,7 +981,15 @@ under `gradle.nestedProjects`, with wrapper and build-server import enabled.
 
 ## Releases and deployment
 
-The monorepo workflow ends after validation, subtree branch publication, and
-upstream PR creation. Merge, release, package publication, mobile signing, and
-application deployment follow the standalone repository's own documentation and
-CI. Root CI never performs these actions.
+Release, package publication, mobile signing, and application deployment follow
+the standalone repositories' own documentation and CI. Root CI never performs
+these actions. Publish a child commit before recording it in the parent so
+clones can fetch every integration revision.
+
+Railway web, worker, and scheduler deployments source
+`OpenSpeleo/SpeleoDB:master`. Keep the web repository's `.railway/railway.ts`,
+`railpack.json`, standalone locks, and build/start commands authoritative. The
+monorepo is not their deployment source: parent gitlink changes do not deploy
+them. Never add monorepo-only Python paths or root workspace assumptions to the
+standalone deployment. Updating those services requires an explicitly requested
+change in the web repository and its deployment workflow.

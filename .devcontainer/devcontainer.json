@@ -1,5 +1,5 @@
 {
-  "name": "SpeleoDB web (monorepo)",
+  "name": "SpeleoDB Monorepo",
   "dockerComposeFile": [
     "../apps/web/local.yml",
     "compose.override.yml"
@@ -12,7 +12,10 @@
     "rustfs",
     "setup",
     "django",
-    "django-webserver"
+    "django-webserver",
+    "celery-worker",
+    "celery-beat",
+    "kanchi"
   ],
   "workspaceFolder": "/workspace",
   "shutdownAction": "stopCompose",

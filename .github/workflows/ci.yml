@@ -22,7 +22,7 @@ jobs:
         run: npm run test:monorepo
       - name: Validate committed configuration
         run: |
-          node -e 'JSON.parse(require("node:fs").readFileSync(".monorepo/subtrees.json"))'
+          node tools/workspace.mjs doctor --submodules-only
           git diff --check
 
   javascript:
@@ -49,7 +49,10 @@ jobs:
       - name: Build applications
         run: npm run build
       - name: Ensure generated checks did not change tracked files
-        run: git diff --exit-code
+        run: |
+          git diff --exit-code --ignore-submodules=none
+          git diff --cached --exit-code --ignore-submodules=none
+          git submodule foreach --recursive 'git diff --exit-code && git diff --cached --exit-code'
 
   rust:
     runs-on: ubuntu-24.04
@@ -67,6 +70,7 @@ jobs:
           targets: wasm32-unknown-unknown
       - uses: astral-sh/setup-uv@v6
         with:
+          version: "0.12.17"
           python-version: "3.14"
           enable-cache: true
       - name: Install Rust frontend tools
@@ -82,7 +86,10 @@ jobs:
       - name: Build openspeleo_core Python extension
         run: make build-core
       - name: Ensure builds did not change tracked files
-        run: git diff --exit-code
+        run: |
+          git diff --exit-code --ignore-submodules=none
+          git diff --cached --exit-code --ignore-submodules=none
+          git submodule foreach --recursive 'git diff --exit-code && git diff --cached --exit-code'
 
   ariane:
     runs-on: ubuntu-latest
@@ -99,7 +106,10 @@ jobs:
         working-directory: apps/ariane_plugin
         run: ./gradlew build test --no-daemon
       - name: Ensure Gradle did not change tracked files
-        run: git diff --exit-code
+        run: |
+          git diff --exit-code --ignore-submodules=none
+          git diff --cached --exit-code --ignore-submodules=none
+          git submodule foreach --recursive 'git diff --exit-code && git diff --cached --exit-code'
 
   web-mypy:
     runs-on: ubuntu-latest
@@ -109,6 +119,7 @@ jobs:
           submodules: recursive
       - uses: astral-sh/setup-uv@v6
         with:
+          version: "0.12.17"
           python-version: "3.14"
           enable-cache: true
       - name: Validate root Python integration lock
@@ -125,4 +136,7 @@ jobs:
           command -v mypy
           bash scripts/run-precommit.sh apps/web:mypy --all-files
       - name: Fail when hooks modify tracked files
-        run: git diff --exit-code
+        run: |
+          git diff --exit-code --ignore-submodules=none
+          git diff --cached --exit-code --ignore-submodules=none
+          git submodule foreach --recursive 'git diff --exit-code && git diff --cached --exit-code'

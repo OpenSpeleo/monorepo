@@ -8,6 +8,17 @@ readonly CACHE_USER="dev-user"
 readonly CACHE_OWNERSHIP_MARKER="${CACHE_ROOT}/.dev-user-venv-v1"
 readonly VENV="/opt/speleodb-venv"
 
+SUDO_PRESERVE_ENV="CARGO_HOME,CARGO_TARGET_DIR,RUSTUP_HOME,RUSTUP_TOOLCHAIN,UV_CACHE_DIR"
+# Git must trust each bind-mounted submodule after either privilege transition.
+for git_config_variable in ${!GIT_CONFIG_@}; do
+    case "${git_config_variable}" in
+        GIT_CONFIG_COUNT|GIT_CONFIG_KEY_*|GIT_CONFIG_VALUE_*)
+            SUDO_PRESERVE_ENV+=",${git_config_variable}"
+            ;;
+    esac
+done
+readonly SUDO_PRESERVE_ENV
+
 if [[ ! -d "${CORE_PROJECT}" ]]; then
     printf 'openspeleo_core source is missing: %s\n' "${CORE_PROJECT}" >&2
     exit 1
@@ -30,12 +41,12 @@ prepare_shared_cache_as_root() {
 if [[ "${EUID}" -eq 0 ]]; then
     prepare_shared_cache_as_root
     exec sudo --set-home \
-        --preserve-env=CARGO_HOME,CARGO_TARGET_DIR,RUSTUP_HOME,RUSTUP_TOOLCHAIN,UV_CACHE_DIR \
+        --preserve-env="${SUDO_PRESERVE_ENV}" \
         -u "${CACHE_USER}" "$0" "$@"
 fi
 
 if [[ ! -e "${CACHE_OWNERSHIP_MARKER}" ]]; then
-    exec sudo --preserve-env=CARGO_HOME,CARGO_TARGET_DIR,RUSTUP_HOME,RUSTUP_TOOLCHAIN,UV_CACHE_DIR \
+    exec sudo --preserve-env="${SUDO_PRESERVE_ENV}" \
         "$0" "$@"
 fi
 

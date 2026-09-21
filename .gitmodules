@@ -1,6 +1,43 @@
-[submodule "apps/ariane_plugin/com.arianesline.ariane.plugin.api"]
-	path = apps/ariane_plugin/com.arianesline.ariane.plugin.api
-	url = git@github.com:Ariane-s-Line/com.arianesline.ariane.plugin.api.git
-[submodule "apps/ariane_plugin/com.arianesline.cavelib.api"]
-	path = apps/ariane_plugin/com.arianesline.cavelib.api
-	url = git@github.com:Ariane-s-Line/com.arianesline.cavelib.api.git
+[submodule "apps/ariane_plugin"]
+	path = apps/ariane_plugin
+	url = https://github.com/OpenSpeleo/SpeleoDB-Ariane-Plugin
+	branch = master
+
+[submodule "apps/compass_sidecar"]
+	path = apps/compass_sidecar
+	url = git@github.com:OpenSpeleo/speleodb_compass_sidecar.git
+	branch = master
+
+[submodule "apps/mobile"]
+	path = apps/mobile
+	url = git@github.com:OpenSpeleo/SpeleoDB-App.git
+	branch = master
+
+[submodule "apps/web"]
+	path = apps/web
+	url = git@github.com:OpenSpeleo/SpeleoDB.git
+	branch = master
+[submodule "packages/python/ariane_lib"]
+	path = packages/python/ariane_lib
+	url = git@github.com:OpenSpeleo/pytool_ariane_lib.git
+	branch = master
+
+[submodule "packages/python/compass_lib"]
+	path = packages/python/compass_lib
+	url = git@github.com:OpenSpeleo/pytool_compass_lib.git
+	branch = master
+
+[submodule "packages/python/mnemo_lib"]
+	path = packages/python/mnemo_lib
+	url = git@github.com:OpenSpeleo/pytool_mnemo_lib.git
+	branch = master
+
+[submodule "packages/python/openspeleo_core"]
+	path = packages/python/openspeleo_core
+	url = git@github.com:OpenSpeleo/openspeleo_core.git
+	branch = master
+
+[submodule "packages/python/openspeleo_lib"]
+	path = packages/python/openspeleo_lib
+	url = git@github.com:OpenSpeleo/pytool_openspeleo_lib.git
+	branch = master
