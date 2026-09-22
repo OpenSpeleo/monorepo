@@ -63,6 +63,22 @@ manifest or publishing abstraction.
 14. Root CI validates only. Do not add deployment, release, publication, or
     PR-creation behavior without explicit authorization.
 
+## Temporary agent files
+
+Keep agent plans, task lists, TODO tracking, progress notes, review notes, and
+scratch lessons outside the repository tree, including all submodules. Use a
+unique task directory under `/tmp/` (for example, create one with
+`mktemp -d /tmp/speleodb-task.XXXXXX`) or another OS temporary directory whose
+resolved path is outside every checkout.
+
+Never create or update these working files inside the checkout, even in ignored
+directories such as `tasks/`, `todos/`, or `plans/`. Never stage or commit them.
+Existing tracked task and lesson files are historical references; do not append
+new work to them. Keep durable product and architecture documentation in
+`docs/`, without embedding task checklists or linking to temporary files. Before
+an authorized commit, inspect the staged filenames and exclude all agent working
+files.
+
 ## Required initial inspection
 
 Before editing, inspect the parent and each affected child:
@@ -91,10 +107,10 @@ Python manifests/locks, `rust-toolchain.toml`, `Makefile`, `README.md`,
 `packages/typescript/README.md` also belongs to the parent.
 
 Never copy root orchestration into an upstream product PR. Files below each
-submodule path belong to that repository, including task records, locks, nested
-`.gitmodules`, and CI. Child changes must work in a standalone clone. A root
-integration adjustment that needs child changes must be validated in both
-contexts; staging a parent gitlink does not commit child files.
+submodule path belong to that repository, including locks, nested `.gitmodules`,
+and CI. Child changes must work in a standalone clone. A root integration
+adjustment that needs child changes must be validated in both contexts; staging
+a parent gitlink does not commit child files.
 
 ## Setup and environment behavior
 
