@@ -2,27 +2,12 @@
   "name": "speleodb-monorepo",
   "version": "1.0.0",
   "private": true,
-  "description": "Development orchestration for the SpeleoDB Git submodule workspace",
+  "description": "SpeleoDB Git submodule workspace",
   "workspaces": [
     "apps/mobile",
     "apps/web",
     "packages/typescript/*/"
   ],
-  "scripts": {
-    "build": "npm run build:mobile && npm run build:web",
-    "build:mobile": "npm run build --workspace=apps/mobile",
-    "build:web": "npm run build --workspace=apps/web",
-    "cap:sync": "npm exec --workspace=apps/mobile -- cap sync",
-    "install:mobile": "npm ci --prefix apps/mobile --workspaces=false",
-    "install:web": "npm ci --prefix apps/web --workspaces=false",
-    "lint": "npm run lint:mobile && npm run lint:web",
-    "lint:mobile": "npm run lint --workspace=apps/mobile",
-    "lint:web": "npm run lint:js --workspace=apps/web",
-    "test": "npm run test:mobile && npm run test:web && npm run test:monorepo",
-    "test:mobile": "npm run test:ci --workspace=apps/mobile",
-    "test:web": "npm run test:js --workspace=apps/web",
-    "test:monorepo": "node --test tools/*.test.mjs"
-  },
   "engines": {
     "node": "26.*"
   },

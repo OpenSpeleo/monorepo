@@ -3,5 +3,7 @@
 apps/mobile/
 apps/ariane_plugin/
 apps/compass_sidecar/
+# Rust-only packages retain standalone validation.
+packages/rust/
 # Operational utilities use their shared config explicitly from the root.
 utilities/

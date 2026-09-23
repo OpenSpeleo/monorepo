@@ -28,7 +28,7 @@ x-monorepo-python-environment: &monorepo_python_environment
   CARGO_HOME: /monorepo-python-build-cache/cargo
   CARGO_TARGET_DIR: /monorepo-python-build-cache/openspeleo-core-target
   # Each submodule is a separate repository with its own ownership check.
-  GIT_CONFIG_COUNT: "12"
+  GIT_CONFIG_COUNT: "14"
   GIT_CONFIG_KEY_0: safe.directory
   GIT_CONFIG_VALUE_0: /workspace
   GIT_CONFIG_KEY_1: safe.directory
@@ -53,6 +53,10 @@ x-monorepo-python-environment: &monorepo_python_environment
   GIT_CONFIG_VALUE_10: /workspace/apps/ariane_plugin/com.arianesline.ariane.plugin.api
   GIT_CONFIG_KEY_11: safe.directory
   GIT_CONFIG_VALUE_11: /workspace/apps/ariane_plugin/com.arianesline.cavelib.api
+  GIT_CONFIG_KEY_12: safe.directory
+  GIT_CONFIG_VALUE_12: /workspace/packages/rust/compass_data
+  GIT_CONFIG_KEY_13: safe.directory
+  GIT_CONFIG_VALUE_13: /workspace/utilities/git-backup-cronjob
   # Shells start in /workspace; the shared entrypoint imports compose from /app.
   PYTHONPATH: "/workspace/packages/python/openspeleo_core/src_python:/workspace/packages/python/mnemo_lib:/workspace/packages/python/compass_lib:/workspace/packages/python/openspeleo_lib:/app"
   RUSTUP_TOOLCHAIN: stable

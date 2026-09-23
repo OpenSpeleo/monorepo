@@ -10,7 +10,7 @@ and publication behavior. Run root orchestration commands from the root.
 
 ## Repository model
 
-This integration repository contains nine Git submodules. `.gitmodules` is the
+This integration repository contains eleven Git submodules. `.gitmodules` is the
 sole authoritative mapping of names, paths, original URLs, and tracking
 branches. Each parent gitlink pins an exact commit; branch configuration does
 not make normal checkout follow upstream automatically.
@@ -26,13 +26,14 @@ not make normal checkout follow upstream automatically.
 | `packages/python/mnemo_lib`       | `packages/python/mnemo_lib`       | `master`        |
 | `packages/python/openspeleo_core` | `packages/python/openspeleo_core` | `master`        |
 | `packages/python/openspeleo_lib`  | `packages/python/openspeleo_lib`  | `master`        |
+| `packages/rust/compass_data`      | `packages/rust/compass_data`      | `main`          |
+| `utilities/git-backup-cronjob`    | `utilities/git-backup-cronjob`    | `master`        |
 
 Future JavaScript packages belong under `packages/typescript/`; the npm
 workspace glob is `packages/typescript/*/` to match directories only.
 
-Use native Git for submodule updates, branches, and publication. The small
-`tools/workspace.mjs` helper provides only setup and doctor; do not add another
-manifest or publishing abstraction.
+Use native Git for submodule updates, branches, and publication. Do not add root
+orchestration tools, test suites, or child-check dispatchers.
 
 ## Non-negotiable rules
 
@@ -94,26 +95,23 @@ git submodule status --recursive
 - Identify root versus child ownership and read the closest `AGENTS.md`.
 - Read `.gitmodules` before submodule operations and inspect affected child
   staged/unstaged state with `git -C <path> ...`.
-- Use `make doctor` when environment or repository configuration matters.
 - Record pre-existing staged files and pointer changes, and verify they remain
   intact after work. A dirty file does not automatically belong to this task.
 
 ## Ownership boundaries
 
 Small operational tools belong to the parent under `utilities/<tool_name>/`,
-with a README per tool and inline dependencies for Python scripts. Keep them out
-of the orchestration-only `tools/` directory. Utilities use environment
-variables for credentials and share `utilities/.pre-commit-config.yaml` and
-`ruff.toml`. Run
+with a README per tool and inline dependencies for Python scripts. Do not create
+a root orchestration tools directory. Utilities use environment variables for
+credentials and share `utilities/.pre-commit-config.yaml` and `ruff.toml`. Run
 `uv run prek run --config utilities/.pre-commit-config.yaml --all-files`
 explicitly from the root; use `--files` for untracked additions. Root hooks and
 automatic prek discovery exclude `utilities/`. Never install Git hooks.
 
 Root-only orchestration includes `.devcontainer/`, root `.github/`, `.vscode/`,
 `.gitmodules`, `.npmrc`, `.pre-commit-config.yaml`, `.prekignore`, root npm and
-Python manifests/locks, `rust-toolchain.toml`, `Makefile`, `README.md`,
-`AGENTS.md`, `scripts/run-precommit.sh`, and `tools/`. The reserved
-`packages/typescript/README.md` also belongs to the parent.
+Python manifests/locks, `rust-toolchain.toml`, `README.md`, and `AGENTS.md`. The
+reserved `packages/typescript/README.md` also belongs to the parent.
 
 Never copy root orchestration into an upstream product PR. Files below each
 submodule path belong to that repository, including locks, nested `.gitmodules`,
@@ -121,93 +119,18 @@ and CI. Child changes must work in a standalone clone. A root integration
 adjustment that needs child changes must be validated in both contexts; staging
 a parent gitlink does not commit child files.
 
-## Setup and environment behavior
+## Setup and commands
 
-Canonical initialization:
+Clone recursively with native Git. Initialize an existing clean checkout using
+`git submodule sync --recursive` and `git submodule update --init --recursive`.
+Preserve intentional branches, dirty work, and gitlink differences; do not
+update those checkouts automatically.
 
-```bash
-git clone --recurse-submodules <monorepo-url>
-cd <checkout>
-make setup
-make doctor
-```
-
-`make setup` validates `.gitmodules`, synchronizes configured URLs, and
-recursively initializes only missing submodules, preserving initialized
-branches, dirty work, and gitlink differences. It then creates ignored
-`apps/web/.envs/test.env` from its tracked template when absent, runs root
-`npm ci`, and syncs the frozen root Python 3.14 environment into
-`${UV_PROJECT_ENVIRONMENT}` or `.venv`.
-
-Setup never installs hooks, advances existing repositories to upstream tips,
-commits, publishes, or deploys. It must preserve initialized nested Ariane
-checkouts as well as top-level repositories.
-
-`make doctor` checks Git, Node, npm, uv, Cargo, Rust, Java, configured URLs,
-actual repository roots, and recursive initialization. It reports pointer
-changes without resetting them.
-
-## Canonical root commands
-
-```bash
-make setup
-make doctor
-make pre-commit
-make test-monorepo
-make install-js
-make install-python
-make dev-web
-make build-web
-make build-mobile
-make sync-mobile
-make check-rust
-make build-compass-ui
-make build-compass-tauri
-make build-core
-make build-ariane
-```
-
-`make pre-commit` is an explicit validation command, never an installed hook.
-
-## Tool contract and tests
-
-| File                                | Contract                                                                 |
-| ----------------------------------- | ------------------------------------------------------------------------ |
-| `tools/workspace.mjs`               | Dependency-free setup and diagnosis using `.gitmodules`                  |
-| `tools/workspace.test.mjs`          | Configuration, Node-version consistency, and initialization safety tests |
-| `tools/precommit-launcher.test.mjs` | Fake-binary tests for explicit repository dispatch                       |
-| `tools/devcontainer.test.mjs`       | Git-trust propagation and merged Compose service coverage                |
-
-Prefer Make targets. Direct `node tools/workspace.mjs setup` performs only Git
-initialization; direct `doctor` performs diagnosis. `doctor --submodules-only`
-checks repositories without requiring every application toolchain. Do not import
-this helper from application code or add unrelated scripts/caches/binaries to
-`tools/`. Construct Git calls with argument arrays, never interpolated shell
-strings. Validate paths and reject unsafe or duplicate configuration before
-mutations.
-
-Run focused tests during development and the complete suite before handoff:
-
-```bash
-node --test tools/workspace.test.mjs
-node --test tools/precommit-launcher.test.mjs
-npm run test:monorepo
-make test-monorepo
-```
-
-Workspace tests use disposable local repositories without network or real
-publication. Cover fresh/partial/repeated initialization, initialized feature
-branches, dirty work, and deliberate gitlink differences, including nested
-submodules. Launcher tests use fake executables through `PREK_BIN` and
-`MYPY_BIN`; cover default and selected dispatch, argument forwarding, missing
-mypy, regular web mypy, repository boundaries, and failure propagation. They
-must never install hooks or run real project hooks.
-
-Tool behavior changes require focused tests, the root suite, non-publishing
-smoke checks, and synchronized README/agent documentation. Devcontainer tests
-validate repository trust, privilege-transition environment preservation, and
-merged service contracts; Compose-dependent checks may skip when its CLI is
-unavailable.
+Root dependency installation uses `npm ci` and
+`uv sync --python 3.14 --all-extras --frozen`. Application build and test
+commands run directly in the owning child repository. There are no root Make
+wrappers, orchestration scripts, or custom tests. The `.devcontainer` scripts
+remain responsible for the container's runtime setup.
 
 ## Git workflow
 
@@ -240,10 +163,11 @@ git -C apps/mobile switch master
 git -C apps/mobile pull --ff-only origin master
 ```
 
-All nine currently use `master`. Prefer `master` when changing configuration;
-fall back to `main` only after verifying `master` is absent upstream. Never
-resolve a diverged branch by automatic reset, rebase, or stash. Refresh root
-locks and validate integration when the selected upstream revision requires it.
+`packages/rust/compass_data` tracks `main`; the other submodules track `master`.
+Prefer `master` when changing configuration; fall back to `main` only after
+verifying `master` is absent upstream. Never resolve a diverged branch by
+automatic reset, rebase, or stash. Refresh root locks and validate integration
+when the selected upstream revision requires it.
 
 When explicitly authorized, stage and commit product files inside their child
 repository, push to its original upstream, then stage and commit the parent
@@ -266,8 +190,8 @@ git diff --cached --name-only
 2. Use native `git submodule add --name <name> -b <branch> <url> <path>`.
 3. Preserve standalone instructions, locks, CI, and nested submodules.
 4. Update npm/uv/editor/container/CI configuration only where needed.
-5. Add the path to root hook exclusions and decide explicit launcher coverage.
-6. Update workspace tests, README, and these instructions.
+5. Add the path to root hook exclusions; each child runs its own checks.
+6. Update README and these instructions.
 7. Validate recursive initialization and relevant standalone/integration builds.
 
 Treat path, URL, and tracking-branch changes as migrations. Inspect existing
@@ -287,9 +211,8 @@ Node 26 is the repository version. The root package is private.
 Keep `.node-version`, `apps/mobile/.node-version`, `apps/web/.node-version`, and
 every future `.node-version` in the workspace or its submodules strictly
 identical, including whitespace and the trailing newline. Update them together
-when changing Node versions. The workspace test discovers tracked and
-non-ignored untracked version files recursively through submodules and compares
-their bytes against the root file; run `npm run test:monorepo` after changes.
+when changing Node versions. Keep these version files synchronized when changing
+Node versions.
 
 `.npmrc` must retain `install-strategy=nested`. Capacitor dependencies and
 postinstall patch scripts rely on `apps/mobile/node_modules`. Do not switch to a
@@ -325,11 +248,11 @@ Relevant checks:
 
 ```bash
 npm ci
-npm run lint
-npm run test:mobile
-npm run test:web
-npm run build
-npm run cap:sync
+npm run lint --workspace=apps/mobile
+npm run test:ci --workspace=apps/mobile
+npm run test:js --workspace=apps/web
+npm run build --workspace=apps/mobile
+npm exec --workspace=apps/mobile -- cap sync
 test -d apps/mobile/node_modules/@capacitor/core
 ```
 
@@ -339,9 +262,9 @@ Capacitor sync must not introduce unexplained tracked Android/iOS path drift.
 
 The root uv project must remain a normal integration project, not a uv
 workspace. It uses Python 3.14 and requires uv >=0.12.17 for the upstream web
-metadata-style dependency overrides. Preserve `tool.uv.required-version` and
-CI's uv 0.12.17 pin. Root development dependencies allow `prek>=0.5.3,<1` to
-accommodate web's prek 0.5.3 pin. Editable path sources map:
+metadata-style dependency overrides. Preserve `tool.uv.required-version`; CI
+uses the latest uv release. Root development dependencies allow `prek>=0.5.3,<1`
+to accommodate web's prek 0.5.3 pin. Editable path sources map:
 
 - `ariane_lib`
 - `compass_lib`
@@ -386,43 +309,25 @@ Never add `../../packages/python/*` sources to `apps/web/pyproject.toml`. Its
 standalone dependency declarations and lock must continue resolving PyPI in
 standalone clones. The root virtual dependency is the monorepo-only overlay.
 
-## Explicit prek and mypy policy
+## Repository-local checks
 
-There is no installed Git hook. Keep it that way. Root checks exclude all
-`.gitmodules` prefixes and validate only root orchestration. Root `.prekignore`
-retains `apps/mobile/`, `apps/ariane_plugin/`, and `apps/compass_sidecar/`.
+Each repository owns its pre-commit configuration and CI. Run its checks
+directly from that repository using its own instructions and environment. Do not
+add a root script or Make target that dispatches pre-commit checks across
+submodules.
 
-Prek skips submodules during workspace discovery. `make pre-commit` therefore
-runs `scripts/run-precommit.sh --all-files`, which explicitly invokes root, web,
-and all five Python repositories. Mobile, Ariane, and Compass remain manual:
+Root `.pre-commit-config.yaml` validates only root orchestration and excludes
+submodule paths. Run `prek run --all-files` from the root for root checks only.
+Prek skips submodules during workspace discovery; preserve that boundary.
 
-```bash
-(cd apps/mobile && prek run --all-files)
-(cd apps/ariane_plugin/org.speleodb.ariane.plugin.speleodb && prek run --all-files)
-(cd apps/compass_sidecar && prek run --all-files)
-```
-
-Launcher behavior:
-
-- Resolve the monorepo from the script location, not a caller's Git root.
-- Locate prek on `PATH` or in the supported local environments/node modules.
-- Locate regular `mypy` on `PATH` or in the web virtual environment when web
-  checks are selected; fail explicitly if it is missing. Never use `dmypy`.
-- Accept one optional leading selector `[<project>[:<hook>]]`, followed by
-  native options. `.` selects root; `.:hook` selects a root hook. Omitting the
-  selector runs every eligible repository. Translate qualified selectors such as
-  `apps/web:mypy` to the owning repository's local hook.
-- Forward supported options and fail on any repository failure.
-- Reject file/ref/config arguments with instructions to run the check inside its
-  owning repository; paths and refs have repository-local meanings.
-
-Never add `.githooks/`, modify `.git/hooks/`, or configure `core.hooksPath`.
+Never install Git hooks, add `.githooks/`, modify `.git/hooks/`, or configure
+`core.hooksPath`.
 
 ## Rust rules
 
 Do not create a root Cargo workspace.
 
-rust-analyzer and root commands link these manifests independently:
+rust-analyzer links these manifests independently:
 
 - `apps/compass_sidecar/Cargo.toml`
 - `packages/python/openspeleo_core/Cargo.toml`
@@ -433,19 +338,19 @@ The committed toolchain uses stable Rust with rustfmt, clippy, and
 Minimum validation for Rust-affecting work:
 
 ```bash
-make check-rust
+cargo check --manifest-path apps/compass_sidecar/Cargo.toml --locked --all-targets --all-features
 ```
 
 Use these when relevant:
 
 ```bash
-make build-compass-ui
-make build-compass-tauri
-make build-core
+(cd apps/compass_sidecar/app && trunk build --release)
+(cd apps/compass_sidecar/app && cargo tauri build --no-bundle)
+(cd packages/python/openspeleo_core && uv run --frozen maturin build)
 ```
 
-`build-compass-tauri` is intentionally `--no-bundle`. `build-core` uses maturin
-from the standalone `openspeleo_core` project with its lock.
+Use `--no-bundle` when checking Tauri builds. Run maturin from the standalone
+`openspeleo_core` project with its lock.
 
 Preserve each Cargo lock and standalone build layout.
 
@@ -461,7 +366,7 @@ Ariane uses:
 Canonical verification:
 
 ```bash
-make build-ariane
+(cd apps/ariane_plugin && ./gradlew build test)
 ```
 
 Do not use system Gradle in place of `./gradlew`. Do not add a root Gradle
@@ -474,9 +379,9 @@ Root VS Code configuration must retain:
 - Gradle build server;
 - automatic Java build configuration.
 
-The root `.gitmodules` declares only the nine top-level repositories. Ariane
-owns its two API gitlinks in `apps/ariane_plugin/.gitmodules`, using paths
-relative to Ariane. Do not duplicate those nested entries in the root.
+The root `.gitmodules` declares only top-level repositories. Ariane owns its two
+API gitlinks in `apps/ariane_plugin/.gitmodules`, using paths relative to
+Ariane. Do not duplicate those nested entries in the root.
 
 When updating a gitlink, fetch a reachable upstream commit, check it out inside
 the submodule, then commit and publish the pointer inside Ariane before
@@ -535,7 +440,7 @@ Required invariants:
   editor from changing only the workspace container's `dev-user` UID and making
   the shared Node or Python build-cache volumes unwritable;
 - the shared devcontainer environment sets Git's environment-backed explicit
-  `safe.directory` entries for `/workspace`, all nine submodule roots, and
+  `safe.directory` entries for `/workspace`, all configured submodule roots, and
   Ariane's two nested APIs before lifecycle commands; preserve this trust when
   dropping privileges. Wildcard trust belongs only in the private test env;
 - Git operations use `/workspace/...`, where relative submodule metadata
@@ -614,9 +519,7 @@ Required invariants:
 - changing the project name creates a separate stack and volumes; it does not
   rename or migrate the old `web` project. Preserve existing containers and
   volumes, and do not silently switch existing development data;
-- `make dev-web` runs the existing `/start` from `/app` inside the container;
-  its host path and `make dev-web-isolated` start Django, Celery worker/beat,
-  and Kanchi through the standalone Compose stack;
+- Run the existing `/start` from `/app` inside the container.
 - Django port 8000 and Kanchi port 8765 are published on host loopback;
   `forwardPorts` remains unset so Zed cannot add conflicting bindings. Preserve
   upstream dependency port mappings, including browser-facing GitLab and RustFS
@@ -635,8 +538,8 @@ Required invariants:
   SDK, and Apple tooling remain outside the web devcontainer;
 - post-create reuses `.devcontainer/sync-openspeleo-core.sh` to install the
   editable package into the workspace service and verifies all four overlaid
-  imports, but never runs root `make setup`, root npm/uv synchronization,
-  `cargo install`, or builds/checks for another application submodule;
+  imports, but never runs root npm/uv synchronization, `cargo install`, or
+  builds/checks for another application submodule;
 - Django Debug Toolbar remains installed and visible in local development, with
   every canonical default panel listed in `DISABLE_PANELS`; do not remove the
   toolbar integration to avoid panel overhead.
@@ -672,28 +575,22 @@ editor-specific port forwarding for that response.
 
 ## Root CI contract
 
-`.github/workflows/ci.yml` runs on pull requests and pushes to `master`.
-Recursive submodule checkout is mandatory for every job.
+`.github/workflows/ci.yml` runs on pull requests and pushes to `master`:
 
-Jobs:
+1. Root `prek run -a`.
+2. `uv lock --check` and `npm ci --ignore-scripts --no-audit --no-fund`, running
+   in parallel after prek.
+3. Build the devcontainer images after both lock checks pass.
 
-1. `orchestration`: Node tool tests, submodule configuration validation,
-   whitespace validation.
-2. `javascript`: Node 26, root npm CI, app-local Capacitor assertion, both
-   lints, mobile build/sync, mobile and web tests, both builds, clean diff.
-3. `rust`: Ubuntu 24.04 Tauri libraries, stable Rust, Python 3.14, Trunk/Tauri
-   tools, two Cargo checks, Compass UI/Tauri builds, maturin build, clean diff.
-4. `ariane`: Temurin Java 25, Gradle wrapper build/tests, clean diff.
-5. `web-mypy`: Python 3.14, root integration-lock freshness, generated test env,
-   standalone web local environment, required `mypy`, authoritative mypy hook,
-   clean diff.
+Cache prek environments, uv and npm downloads, and Docker layers. Use the
+existing Compose files for the devcontainer build. Django and PostgreSQL are its
+two image builds; webserver, worker, scheduler, and setup share Django's
+Dockerfile and args. Every job checks out the pinned submodules recursively.
 
-CI must fail if hooks or generators modify tracked files. Check staged and
-unstaged diffs in the parent and every initialized child. Do not weaken these
-recursive checks to hide drift.
-
-Root CI must not deploy, release, publish packages, push child repositories, or
-open PRs. Those actions remain in standalone upstream repositories.
+Do not add custom root tests, orchestration tools, cross-repository pre-commit
+scripts, product checks, or additional CI phases. Child repositories own their
+checks and releases. Root CI must not publish, deploy, start services, push, or
+open PRs.
 
 ## Railway deployment boundary
 
@@ -706,50 +603,16 @@ paths into standalone web configuration. Validate production dependency install,
 frontend build, and Railway configuration type-checking when changes affect
 these contracts. Deployment requires explicit authorization.
 
-## Verification matrix
+## Verification
 
-Choose checks proportional to the affected scope.
-
-| Change                          | Required minimum verification                                                         |
-| ------------------------------- | ------------------------------------------------------------------------------------- |
-| Submodule configuration/tooling | `npm run test:monorepo`, `make doctor`, recursive status                              |
-| Root shell scripts              | `bash -n <scripts>`, `npm run test:monorepo` when launcher-related                    |
-| Root JSON/editor config         | JSON parse plus relevant extension/import smoke check                                 |
-| Root Compose/devcontainer       | merged Compose config; build or runtime smoke test when behavior changes              |
-| Mobile source/dependencies      | standalone/root install as applicable, lint, tests, build, Capacitor sync drift check |
-| Web JavaScript                  | lint, JS tests, production build                                                      |
-| Web Python                      | standalone uv sync, focused/full pytest, mypy when relevant                           |
-| Shared Python package           | package lock plus root lock, relevant tests, root uv sync                             |
-| Compass Rust                    | `make check-rust`, Trunk and/or Tauri build when affected                             |
-| `openspeleo_core`               | `make check-rust`, `make build-core`, relevant Python/Rust tests                      |
-| Ariane                          | recursive submodules, Java 25, `make build-ariane`                                    |
-| Documentation only              | command/config cross-check and `git diff --check`                                     |
-
-Broad local integration validation:
-
-```bash
-make doctor
-npm run test:monorepo
-npm run lint
-npm run test
-npm run build
-make check-rust
-make build-compass-ui
-make build-compass-tauri
-make build-core
-make build-ariane
-make pre-commit
-git diff --check
-```
-
-Do not claim a check passed unless it was actually run. Report platform or
-dependency limitations precisely.
+Use the checks defined in the workflow and each affected child's own
+instructions. Do not create a root test suite. Follow user instructions about
+whether to run local checks or builds, and never claim an unrun check passed.
 
 ## Configuration synchronization checklist
 
 When structure or tooling changes, update every applicable surface:
 
-- `Makefile`
 - root `package.json` and lock
 - root `pyproject.toml` and lock
 - standalone app/package locks
@@ -759,10 +622,8 @@ When structure or tooling changes, update every applicable surface:
 - `.github/workflows/ci.yml`
 - `README.md`
 - `AGENTS.md`
-- unit tests for workspace initialization or launcher behavior
 
-Do not leave documentation describing commands that the current Makefile or tool
-implementation does not support.
+Keep documentation aligned with native Git, npm, uv, and Compose commands.
 
 ## Completion and handoff
 

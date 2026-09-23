@@ -1,8 +1,5 @@
-# Root hooks validate monorepo orchestration only. Every submodule is excluded
-# from these hooks because its own .pre-commit-config.yaml remains
-# authoritative. .prekignore additionally prevents Ariane and Compass project
-# discovery; their hooks must be run from inside those standalone directories.
-# scripts/run-precommit.sh explicitly invokes web and Python submodule checks.
+# Root checks validate monorepo orchestration only. Each submodule owns its
+# checks and runs them directly from its own repository.
 # utilities/ owns separate, explicitly invoked operational-tool checks.
 exclude: >-
   (?x)^(
@@ -15,6 +12,7 @@ exclude: >-
     |packages/python/mnemo_lib/
     |packages/python/openspeleo_core/
     |packages/python/openspeleo_lib/
+    |packages/rust/
     |utilities/
   )
 
@@ -31,7 +29,8 @@ repos:
       - id: check-toml
       - id: check-xml
       - id: check-yaml
-        args: [--allow-multiple-documents]
+        # Compose uses custom tags such as !reset.
+        args: [--allow-multiple-documents, --unsafe]
       - id: debug-statements
       - id: check-builtin-literals
       - id: check-case-conflict

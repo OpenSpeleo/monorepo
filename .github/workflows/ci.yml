@@ -8,135 +8,80 @@ on:
 permissions:
   contents: read
 
-jobs:
-  orchestration:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .node-version
-      - name: Test root orchestration
-        run: npm run test:monorepo
-      - name: Validate committed configuration
-        run: |
-          node tools/workspace.mjs doctor --submodules-only
-          git diff --check
+concurrency:
+  group: monorepo-validation-${{ github.ref }}
+  cancel-in-progress: true
 
-  javascript:
+jobs:
+  prek:
+    name: Prek
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
         with:
           submodules: recursive
-      - uses: actions/setup-node@v4
+      - uses: j178/prek-action@v3.0.0
+        with:
+          install-only: true
+          cache: true
+      - run: prek run -a
+
+  uv-lock:
+    name: uv lock
+    needs: prek
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          submodules: recursive
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          version: latest
+          python-version: "3.14"
+          enable-cache: true
+      - run: uv lock --check
+
+  npm-lock:
+    name: npm lock
+    needs: prek
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          submodules: recursive
+      - uses: actions/setup-node@v7.0.0
         with:
           node-version-file: .node-version
           cache: npm
           cache-dependency-path: package-lock.json
-      - name: Install root npm workspace
-        run: npm ci
-      - name: Verify Capacitor dependencies remain app-local
-        run: test -d apps/mobile/node_modules/@capacitor/core
-      - name: Lint applications
-        run: npm run lint
-      - name: Build mobile and synchronize Capacitor projects
-        run: npm run build:mobile && npm run cap:sync
-      - name: Test applications
-        run: npm run test:mobile && npm run test:web
-      - name: Build applications
-        run: npm run build
-      - name: Ensure generated checks did not change tracked files
-        run: |
-          git diff --exit-code --ignore-submodules=none
-          git diff --cached --exit-code --ignore-submodules=none
-          git submodule foreach --recursive 'git diff --exit-code && git diff --cached --exit-code'
+      - run: npm ci --ignore-scripts --no-audit --no-fund
 
-  rust:
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-      - name: Install Tauri system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install --no-install-recommends -y build-essential clang cmake libayatana-appindicator3-dev libclang-dev librsvg2-dev libssl-dev libwebkit2gtk-4.1-dev patchelf pkg-config
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: clippy,rustfmt
-          targets: wasm32-unknown-unknown
-      - uses: astral-sh/setup-uv@v6
-        with:
-          version: "0.12.17"
-          python-version: "3.14"
-          enable-cache: true
-      - name: Install Rust frontend tools
-        run: |
-          cargo install trunk --locked
-          cargo install tauri-cli --version '^2.0' --locked
-      - name: Check both Rust projects
-        run: make check-rust
-      - name: Build Compass web UI
-        run: make build-compass-ui
-      - name: Compile Compass Tauri application without bundles
-        run: make build-compass-tauri
-      - name: Build openspeleo_core Python extension
-        run: make build-core
-      - name: Ensure builds did not change tracked files
-        run: |
-          git diff --exit-code --ignore-submodules=none
-          git diff --cached --exit-code --ignore-submodules=none
-          git submodule foreach --recursive 'git diff --exit-code && git diff --cached --exit-code'
-
-  ariane:
+  devcontainer:
+    name: Devcontainer build
+    needs: [uv-lock, npm-lock]
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
         with:
           submodules: recursive
-      - uses: actions/setup-java@v4
+      - uses: docker/setup-buildx-action@v4.4.1
+      - name: Read devcontainer Compose build configuration
+        # Webserver, workers, and setup use the same Dockerfile/args as django.
+        run: |
+          docker compose --env-file /dev/null \
+            -f apps/web/local.yml -f .devcontainer/compose.override.yml \
+            build --print django postgres > "$RUNNER_TEMP/devcontainer-bake.json"
+      - name: Build devcontainer images
+        uses: docker/bake-action@v7.4.0
         with:
-          distribution: temurin
-          java-version: "25"
-          cache: gradle
-      - name: Build and test Ariane
-        working-directory: apps/ariane_plugin
-        run: ./gradlew build test --no-daemon
-      - name: Ensure Gradle did not change tracked files
-        run: |
-          git diff --exit-code --ignore-submodules=none
-          git diff --cached --exit-code --ignore-submodules=none
-          git submodule foreach --recursive 'git diff --exit-code && git diff --cached --exit-code'
-
-  web-mypy:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-      - uses: astral-sh/setup-uv@v6
-        with:
-          version: "0.12.17"
-          python-version: "3.14"
-          enable-cache: true
-      - name: Validate root Python integration lock
-        run: uv lock --check
-      - name: Install apps/web local environment
-        run: |
-          cp apps/web/.envs/test.env.dist apps/web/.envs/test.env
-          uv sync --project apps/web --extra local --frozen
-      - name: Require mypy and run the authoritative hook
-        env:
-          CI: "1"
-        run: |
-          export PATH="$PWD/apps/web/.venv/bin:$PATH"
-          command -v mypy
-          bash scripts/run-precommit.sh apps/web:mypy --all-files
-      - name: Fail when hooks modify tracked files
-        run: |
-          git diff --exit-code --ignore-submodules=none
-          git diff --cached --exit-code --ignore-submodules=none
-          git submodule foreach --recursive 'git diff --exit-code && git diff --cached --exit-code'
+          files: ${{ runner.temp }}/devcontainer-bake.json
+          set: |
+            *.output=type=cacheonly
+            django.cache-from=type=gha,scope=devcontainer-django
+            django.cache-to=type=gha,scope=devcontainer-django,mode=max
+            postgres.cache-from=type=gha,scope=devcontainer-postgres
+            postgres.cache-to=type=gha,scope=devcontainer-postgres,mode=max
