@@ -3,3 +3,5 @@
 apps/mobile/
 apps/ariane_plugin/
 apps/compass_sidecar/
+# Operational utilities use their shared config explicitly from the root.
+utilities/

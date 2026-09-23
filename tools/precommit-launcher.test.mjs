@@ -35,10 +35,13 @@ if (process.env.PREK_FAIL_PROJECT && process.cwd().endsWith(process.env.PREK_FAI
 
 test("root hooks exclude all submodules and manual application boundaries remain explicit", () => {
   const config = readFileSync(path.join(ROOT, ".pre-commit-config.yaml"), "utf8");
-  for (const module of readSubmodules()) assert.ok(config.includes(`${module.path}/`));
+  for (const module of readSubmodules()) {
+    const parts = module.path.split("/");
+    assert.ok(parts.some((_, index) => config.includes(`${parts.slice(0, index + 1).join("/")}/`)));
+  }
   const excluded = readFileSync(path.join(ROOT, ".prekignore"), "utf8").split("\n")
     .map((line) => line.trim()).filter((line) => line && !line.startsWith("#"));
-  assert.deepEqual(excluded, ["apps/mobile/", "apps/ariane_plugin/", "apps/compass_sidecar/"]);
+  assert.deepEqual(excluded, ["apps/mobile/", "apps/ariane_plugin/", "apps/compass_sidecar/", "utilities/"]);
 });
 
 test("root Python integration keeps web virtual and shared libraries editable", () => {

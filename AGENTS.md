@@ -100,6 +100,15 @@ git submodule status --recursive
 
 ## Ownership boundaries
 
+Small operational tools belong to the parent under `utilities/<tool_name>/`,
+with a README per tool and inline dependencies for Python scripts. Keep them out
+of the orchestration-only `tools/` directory. Utilities use environment
+variables for credentials and share `utilities/.pre-commit-config.yaml` and
+`ruff.toml`. Run
+`uv run prek run --config utilities/.pre-commit-config.yaml --all-files`
+explicitly from the root; use `--files` for untracked additions. Root hooks and
+automatic prek discovery exclude `utilities/`. Never install Git hooks.
+
 Root-only orchestration includes `.devcontainer/`, root `.github/`, `.vscode/`,
 `.gitmodules`, `.npmrc`, `.pre-commit-config.yaml`, `.prekignore`, root npm and
 Python manifests/locks, `rust-toolchain.toml`, `Makefile`, `README.md`,

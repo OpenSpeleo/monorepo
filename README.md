@@ -29,6 +29,10 @@ standalone repositories or their release pipelines.
 
 ## Repository structure
 
+Small operational tools live in [utilities/](utilities/README.md), with one
+folder per tool and shared, explicitly invoked formatting and lint checks.
+Workspace orchestration remains in `tools/`.
+
 ### Applications
 
 | Name                   | Path                   | Technology and purpose                               | Upstream base |
