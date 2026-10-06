@@ -9,12 +9,12 @@ tracking branches; parent gitlinks pin exact commits.
 
 ### Applications
 
-| Path                   | Upstream repository                                                                | Technology and purpose                                    |
-| ---------------------- | ---------------------------------------------------------------------------------- | --------------------------------------------------------- |
-| `apps/ariane_plugin`   | [SpeleoDB-Ariane-Plugin](https://github.com/OpenSpeleo/SpeleoDB-Ariane-Plugin)     | Java/JavaFX plugin connecting Ariane to SpeleoDB.         |
-| `apps/compass_sidecar` | [speleodb_compass_sidecar](https://github.com/OpenSpeleo/speleodb_compass_sidecar) | Rust, Yew, and Tauri desktop sidecar for Compass.         |
-| `apps/mobile`          | [SpeleoDB-App](https://github.com/OpenSpeleo/SpeleoDB-App)                         | React, Ionic, Vite, and Capacitor mobile application.     |
-| `apps/web`             | [SpeleoDB](https://github.com/OpenSpeleo/SpeleoDB)                                 | Django web application with Vite-managed frontend assets. |
+| Path                   | Upstream repository                                                                | Technology and purpose                                         |
+| ---------------------- | ---------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| `apps/ariane_plugin`   | [SpeleoDB-Ariane-Plugin](https://github.com/OpenSpeleo/SpeleoDB-Ariane-Plugin)     | Java/JavaFX plugin connecting Ariane to SpeleoDB.              |
+| `apps/compass_sidecar` | [speleodb_compass_sidecar](https://github.com/OpenSpeleo/speleodb_compass_sidecar) | Rust, React/TypeScript, and Tauri desktop sidecar for Compass. |
+| `apps/mobile`          | [SpeleoDB-App](https://github.com/OpenSpeleo/SpeleoDB-App)                         | React, Ionic, Vite, and Capacitor mobile application.          |
+| `apps/web`             | [SpeleoDB](https://github.com/OpenSpeleo/SpeleoDB)                                 | Django web application with Vite-managed frontend assets.      |
 
 ### Shared libraries
 

@@ -1,5 +1,22 @@
 # SpeleoDB Monorepo Agent Instructions
 
+## Git actions require an explicit user request
+
+NEVER stage, unstage, stash, unstash (including stash apply or pop), commit, or
+push unless the user explicitly asks for that specific action. Permission for
+one action does not authorize any of the others. Requests to review, fix,
+implement, test, or finish work do not authorize these Git actions.
+
+Invoking a skill, plugin, workflow, or sub-agent does NOT authorize these Git
+actions, even if its instructions say to perform them. This restriction also
+applies to sub-agents, scripts, tools, hooks, and other indirect execution.
+
+Preserve the existing staging area and stash entries. Never automatically stash
+or unstage work to run checks. Do not reset, restore, discard, or clean user
+changes without an explicit request for that action. If the user tells you to
+stop Git operations, stop immediately and do not attempt to undo previous Git
+actions without a new explicit request.
+
 ## Scope and instruction hierarchy
 
 These instructions apply from the monorepo root. Each standalone submodule may
@@ -332,8 +349,8 @@ rust-analyzer links these manifests independently:
 - `apps/compass_sidecar/Cargo.toml`
 - `packages/python/openspeleo_core/Cargo.toml`
 
-The committed toolchain uses stable Rust with rustfmt, clippy, and
-`wasm32-unknown-unknown`.
+The committed toolchain uses stable Rust with rustfmt and clippy. The Compass
+frontend uses React/TypeScript and does not require a Rust WASM target.
 
 Minimum validation for Rust-affecting work:
 
@@ -344,8 +361,8 @@ cargo check --manifest-path apps/compass_sidecar/Cargo.toml --locked --all-targe
 Use these when relevant:
 
 ```bash
-(cd apps/compass_sidecar/app && trunk build --release)
-(cd apps/compass_sidecar/app && cargo tauri build --no-bundle)
+(cd apps/compass_sidecar/app && bun run build:release)
+(cd apps/compass_sidecar/app && bun run tauri build --no-bundle)
 (cd packages/python/openspeleo_core && uv run --frozen maturin build)
 ```
 
