@@ -1,0 +1,21 @@
+{
+  "name": "speleodb-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "SpeleoDB Git submodule workspace",
+  "workspaces": [
+    "apps/mobile",
+    "apps/web",
+    "packages/typescript/*/"
+  ],
+  "engines": {
+    "node": "26.*"
+  },
+  "allowScripts": {
+    "@sentry/capacitor": true,
+    "core-js": true,
+    "fsevents": true,
+    "@maplibre/maplibre-gl-style-spec@19.3.3": true,
+    "esbuild@0.28.2": true
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "name": "SpeleoDB Monorepo",
+  "dockerComposeFile": [
+    "../apps/web/local.yml",
+    "compose.override.yml"
+  ],
+  "service": "django",
+  "runServices": [
+    "postgres",
+    "redis",
+    "gitlab",
+    "rustfs",
+    "setup",
+    "django",
+    "django-webserver",
+    "celery-worker",
+    "celery-beat",
+    "kanchi"
+  ],
+  "workspaceFolder": "/workspace",
+  "shutdownAction": "stopCompose",
+  "remoteUser": "dev-user",
+  "updateRemoteUserUID": false,
+  "init": true,
+  "overrideCommand": false,
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "python.defaultInterpreterPath": "/opt/speleodb-venv/bin/python"
+      },
+      "extensions": [
+        "ms-python.python",
+        "charliermarsh.ruff",
+        "ms-azuretools.vscode-docker",
+        "ms-vscode.makefile-tools",
+        "redhat.vscode-yaml",
+        "tamasfe.even-better-toml"
+      ]
+    }
+  },
+  "postCreateCommand": "bash /workspace/.devcontainer/setup.sh"
+}

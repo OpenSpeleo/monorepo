@@ -1,0 +1,87 @@
+name: Monorepo validation
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: monorepo-validation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  prek:
+    name: Prek
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          submodules: recursive
+      - uses: j178/prek-action@v3.0.0
+        with:
+          install-only: true
+          cache: true
+      - run: prek run -a
+
+  uv-lock:
+    name: uv lock
+    needs: prek
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          submodules: recursive
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          version: latest
+          python-version: "3.14"
+          enable-cache: true
+      - run: uv lock --check
+
+  npm-lock:
+    name: npm lock
+    needs: prek
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          submodules: recursive
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version-file: .node-version
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+
+  devcontainer:
+    name: Devcontainer build
+    needs: [uv-lock, npm-lock]
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          submodules: recursive
+      - uses: docker/setup-buildx-action@v4.4.1
+      - name: Read devcontainer Compose build configuration
+        # Webserver, workers, and setup use the same Dockerfile/args as django.
+        run: |
+          docker compose --env-file /dev/null \
+            -f apps/web/local.yml -f .devcontainer/compose.override.yml \
+            build --print django postgres > "$RUNNER_TEMP/devcontainer-bake.json"
+      - name: Build devcontainer images
+        uses: docker/bake-action@v7.4.0
+        with:
+          files: ${{ runner.temp }}/devcontainer-bake.json
+          set: |
+            *.output=type=cacheonly
+            django.cache-from=type=gha,scope=devcontainer-django
+            django.cache-to=type=gha,scope=devcontainer-django,mode=max
+            postgres.cache-from=type=gha,scope=devcontainer-postgres
+            postgres.cache-to=type=gha,scope=devcontainer-postgres,mode=max

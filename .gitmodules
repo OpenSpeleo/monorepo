@@ -1,0 +1,53 @@
+[submodule "apps/ariane_plugin"]
+	path = apps/ariane_plugin
+	url = ../SpeleoDB-Ariane-Plugin.git
+	branch = master
+
+[submodule "apps/compass_sidecar"]
+	path = apps/compass_sidecar
+	url = ../speleodb_compass_sidecar.git
+	branch = master
+
+[submodule "apps/mobile"]
+	path = apps/mobile
+	url = ../SpeleoDB-App.git
+	branch = master
+
+[submodule "apps/web"]
+	path = apps/web
+	url = ../SpeleoDB.git
+	branch = master
+[submodule "packages/python/ariane_lib"]
+	path = packages/python/ariane_lib
+	url = ../pytool_ariane_lib.git
+	branch = master
+
+[submodule "packages/python/compass_lib"]
+	path = packages/python/compass_lib
+	url = ../pytool_compass_lib.git
+	branch = master
+
+[submodule "packages/python/mnemo_lib"]
+	path = packages/python/mnemo_lib
+	url = ../pytool_mnemo_lib.git
+	branch = master
+
+[submodule "packages/python/openspeleo_core"]
+	path = packages/python/openspeleo_core
+	url = ../openspeleo_core.git
+	branch = master
+
+[submodule "packages/python/openspeleo_lib"]
+	path = packages/python/openspeleo_lib
+	url = ../pytool_openspeleo_lib.git
+	branch = master
+
+[submodule "packages/rust/compass_data"]
+	path = packages/rust/compass_data
+	url = https://github.com/zheylmun/compass_data.git
+	branch = main
+
+[submodule "utilities/git-backup-cronjob"]
+	path = utilities/git-backup-cronjob
+	url = ../SpeleoDB_Git_Backup_CronJob.git
+	branch = master

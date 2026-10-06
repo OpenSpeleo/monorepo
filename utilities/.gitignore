@@ -1,0 +1,14 @@
+.env
+.env.*
+!.env.example
+.venv/
+__pycache__/
+*.py[cod]
+.ruff_cache/
+data/
+output/
+*.[mM][aA][kK]
+*.[dD][aA][tT]
+*.[pP][lL][tT]
+*.[zZ][iI][pP]
+*.[cC][zZ][iI][pP]
