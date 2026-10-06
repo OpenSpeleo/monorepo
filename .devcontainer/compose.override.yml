@@ -103,7 +103,7 @@ services:
       - speleodb_local_monorepo_python_build_cache:/monorepo-python-build-cache
 
   postgres:
-    image: "${COMPOSE_PROJECT_NAME}-postgres"
+    image: "postgres:16-alpine"
     container_name: "${COMPOSE_INSTANCE_PREFIX:-${COMPOSE_PROJECT_NAME}}-postgres"
     restart: unless-stopped
 
