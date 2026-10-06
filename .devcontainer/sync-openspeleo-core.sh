@@ -55,7 +55,12 @@ if [[ "$(id -un)" != "${CACHE_USER}" ]]; then
     exit 1
 fi
 
-export PATH="${VENV}/bin:/usr/local/cargo/bin:/usr/local/bin:/usr/bin:/bin"
+export PATH="${VENV}/bin:/usr/local/bin:/opt/development/bin:/opt/runtime/bin:/usr/local/cargo/bin:/usr/bin:/bin"
+# sudo clears loader variables; restore the Nix image's runtime libraries.
+# Keep the current Debian container usable until its next authorized rebuild.
+if [[ -d /opt/runtime/lib ]]; then
+    export LD_LIBRARY_PATH=/opt/runtime/lib
+fi
 export UV_LINK_MODE="${UV_LINK_MODE:-copy}"
 export UV_PROJECT_ENVIRONMENT="${VENV}"
 umask 0002

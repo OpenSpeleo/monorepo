@@ -119,6 +119,29 @@ Open the monorepo root in the editor and use `.devcontainer/devcontainer.json`.
 It combines `apps/web/local.yml` with `.devcontainer/compose.override.yml`.
 Initialize submodules on the host before opening the container.
 
+The web repository's `flake.nix` and `flake.lock` define pinned Linux tools and
+system libraries. Its `compose/Dockerfile` starts from the official Nix image,
+installs those packages, and adds the application with ordinary `uv sync` and
+npm commands. Application dependencies remain locked by the web repository's
+`uv.lock` and `package-lock.json`. No root flake or host Nix is needed.
+
+The Dockerfile uses a writable BuildKit `type=cache` mount for the unpacked
+`/nix` tree, including packages and the store database. Docker manages this
+cache; no local cache directory, host preparation helper, or editor
+initialization command is needed. Repeated builds on the same builder reuse the
+cache, subject to Docker cache pruning. The editor performs its normal full
+Compose build/start, including service readiness and setup. Django builds the
+shared image once; setup and Celery reuse it. The webserver keeps its separate
+image tag. Each tag has one build owner to prevent duplicate untagged exports.
+
+Compose selects the Dockerfile's `development` target. The monorepo override
+enables `DOCKER_INCLUDE_MONOREPO_RUST_TOOLCHAIN=1`, adding Nix-provided Rust and
+Cargo for the editable extension; standalone development stays Rust-free. The
+flake defines `runtime`, `development`, and `monorepo` package sets. Runtime
+tools and libraries are installed at `/opt/runtime`; development tools are at
+`/opt/development`. Startup and post-create reuse installed tools without
+evaluating the flake or downloading toolchains.
+
 The workspace mounts at `/workspace`, and the web application mounts at `/app`.
 The container uses `/opt/speleodb-venv`, live shared Python sources, and an
 editable `openspeleo_core` extension. Container dependencies and build caches
@@ -135,6 +158,20 @@ and volumes. Use both a distinct Compose project and `COMPOSE_INSTANCE_PREFIX`
 when intentionally starting an isolated stack. Do not delete volumes to solve a
 configuration issue.
 
+## Railway deployment
+
+Web, worker, and scheduler continue to deploy from the standalone
+`OpenSpeleo/SpeleoDB` repository on `master`. Its Railway configuration builds
+`compose/Dockerfile`, whose default `production` target adds the Python
+environment and compiled assets to the Nix runtime image. Docker build steps
+call uv/npm directly, using the same application locks as development. Build
+tools and development dependencies stay in the build stage.
+
+Changes to the parent gitlink alone do not publish web changes or deploy the
+application. The web repository owns its flake lock, dependency locks,
+Dockerfile, Railway configuration, and production image validation. Deployment
+still requires explicit authorization.
+
 ## CI
 
 The workflow runs on pull requests and pushes to `master`, in this order:
@@ -142,17 +179,21 @@ The workflow runs on pull requests and pushes to `master`, in this order:
 1. `prek run -a` using the root configuration.
 2. In parallel: `uv lock --check` and
    `npm ci --ignore-scripts --no-audit --no-fund`.
-3. Build the devcontainer's Django and PostgreSQL images from the merged Compose
-   configuration. Webserver, worker, scheduler, and setup services share the
-   Django Dockerfile and build arguments.
+3. Build the devcontainer's Django image from the merged Compose configuration.
+   Webserver uses the same Dockerfile and build arguments for its separate tag;
+   worker, scheduler, and setup reuse Django's image.
 
 Every job checks out pinned submodules recursively. CI caches prek environments,
-uv downloads, npm downloads, and Docker build layers. It does not run child test
-suites, start the devcontainer services, publish images, or deploy applications.
+uv downloads, npm downloads, and Docker build layers. The writable Nix cache is
+managed by the builder and is separate from exported Docker layer caches. CI
+does not run child test suites, start the devcontainer services, publish images,
+or deploy applications.
 
 The npm check validates the root lock without running lifecycle scripts. The uv
 check validates the root lock without installing the project. The image build
-uses Buildx with separate GitHub Actions cache scopes for Django and PostgreSQL.
+uses Buildx with a GitHub Actions cache scope for Django. PostgreSQL uses the
+upstream `postgres:16` image directly, without a custom build or maintenance
+scripts.
 
 ## Operational utilities
 

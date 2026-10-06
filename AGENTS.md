@@ -435,9 +435,26 @@ directory.
 The root devcontainer layers on `apps/web/local.yml` through
 `.devcontainer/compose.override.yml`.
 
+The web repository's `flake.nix` and `flake.lock` define Linux tools and system
+libraries in `runtime`, `development`, and `monorepo` package sets. Its
+`compose/Dockerfile` installs them in the official Nix base image, then installs
+application dependencies with ordinary uv/npm commands. Preserve the independent
+`uv.lock` and `package-lock.json` as application dependency locks. Keep
+application installation out of the flake. Do not add a root flake or require
+host Nix. Realize toolchains during image builds, never during startup or
+post-create. The Dockerfile uses a writable BuildKit `type=cache` mount for the
+unpacked `/nix` tree, including packages and their database. Docker manages the
+cache; do not add local Nix cache directories, host preparation helpers, or
+named build contexts. Keep cache reuse inside the normal Docker image build.
+
 Required invariants:
 
 - VS Code service remains `django`;
+- application images use the Dockerfile's `development` target; `django` owns
+  the shared image build, and `setup`, `celery-worker`, and `celery-beat` reuse
+  that image without build blocks; `django-webserver` builds its separate tag;
+- keep one build owner per image tag so Compose's per-service labels cannot
+  produce duplicate exports that overwrite each other's tags;
 - `.devcontainer/compose` remains a relative link to `../apps/web/compose` while
   supported Zed stable releases resolve Compose Dockerfiles relative to
   `.devcontainer`; never duplicate the web Dockerfile at the root;
@@ -474,7 +491,11 @@ Required invariants:
   with a startup `pip`/`uv` installation;
 - the standalone web image remains Rust-free by default; only the root Compose
   override enables `DOCKER_INCLUDE_MONOREPO_RUST_TOOLCHAIN=1`;
-- the opt-in Rust layer remains before the web Python dependency layer;
+- final images contain their required Nix packages and store registrations; the
+  separate writable BuildKit cache persists `/nix` during image builds;
+- the selected Nix toolchain, including opt-in Rust, is realized before the web
+  Python dependency layer; runtime tools and libraries are at `/opt/runtime` and
+  development tools at `/opt/development`;
 - `openspeleo_core` is installed PEP 660 editable with Maturin's explicit `dev`
   profile before application setup, and both its Python package and Linux
   extension must resolve below the bind-mounted submodule;
@@ -489,7 +510,9 @@ Required invariants:
 - `.devcontainer/sync-openspeleo-core.sh` must retain its versioned one-time
   `dev-user` cache-ownership migration for empty or legacy volumes, drop
   privileges before invoking uv or Cargo, and perform every normal sync as
-  `dev-user`;
+  `dev-user`; restore `/opt/runtime/lib` as the loader path after sudo and use
+  Nix-provided Cargo/rustc in rebuilt images; retain legacy tool paths until
+  existing containers are rebuilt;
 - existing web image, `/entrypoint`, `/start`, environment files, PostgreSQL,
   Redis, and RustFS remain authoritative; the standalone stack retains host
   networking while the root devcontainer uses Compose networking for setup and
@@ -600,9 +623,13 @@ editor-specific port forwarding for that response.
 3. Build the devcontainer images after both lock checks pass.
 
 Cache prek environments, uv and npm downloads, and Docker layers. Use the
-existing Compose files for the devcontainer build. Django and PostgreSQL are its
-two image builds; webserver, worker, scheduler, and setup share Django's
-Dockerfile and args. Every job checks out the pinned submodules recursively.
+existing Compose files for the devcontainer build. The writable Nix cache is
+builder-managed and separate from exported Docker layer caches; do not add
+host-cache restore or preparation steps. CI builds the Django image; webserver
+uses Django's Dockerfile and args for its separate tag, while worker, scheduler,
+and setup reuse Django's image without separate builds. Every job checks out the
+pinned submodules recursively. PostgreSQL uses the upstream `postgres:16` image
+directly; do not add a PostgreSQL image build or maintenance scripts.
 
 Do not add custom root tests, orchestration tools, cross-repository pre-commit
 scripts, product checks, or additional CI phases. Child repositories own their
@@ -613,12 +640,15 @@ open PRs.
 
 Web, worker, and scheduler deployment sources remain the standalone
 `OpenSpeleo/SpeleoDB` repository on `master`. Its `.railway/railway.ts`,
-`railpack.json`, standalone dependency locks, and build/start commands remain
-authoritative. Parent gitlink updates do not publish or deploy the web source.
-Never point product services at the monorepo or put monorepo-only dependency
-paths into standalone web configuration. Validate production dependency install,
-frontend build, and Railway configuration type-checking when changes affect
-these contracts. Deployment requires explicit authorization.
+`compose/Dockerfile`, `flake.nix`, `flake.lock`, standalone dependency locks,
+and build/start commands remain authoritative. Railway uses the Dockerfile's
+default `production` target, adding the Python environment and compiled frontend
+to the Nix runtime image, excluding build tools and development dependencies.
+Parent gitlink updates do not publish or deploy the web source. Never point
+product services at the monorepo or put monorepo-only dependency paths into
+standalone web configuration. Validate production dependency install, frontend
+build, and Railway configuration type-checking when changes affect these
+contracts. Deployment requires explicit authorization.
 
 ## Verification
 

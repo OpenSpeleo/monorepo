@@ -3,8 +3,6 @@ name: speleodb-monorepo
 volumes:
   speleodb_local_postgres_data:
     name: "${COMPOSE_PROJECT_NAME}-postgres-data"
-  speleodb_local_postgres_data_backups:
-    name: "${COMPOSE_PROJECT_NAME}-postgres-backups"
   speleodb_local_gitlab_config:
     name: "${COMPOSE_PROJECT_NAME}-gitlab-config"
   speleodb_local_gitlab_logs:
@@ -59,7 +57,6 @@ x-monorepo-python-environment: &monorepo_python_environment
   GIT_CONFIG_VALUE_13: /workspace/utilities/git-backup-cronjob
   # Shells start in /workspace; the shared entrypoint imports compose from /app.
   PYTHONPATH: "/workspace/packages/python/openspeleo_core/src_python:/workspace/packages/python/mnemo_lib:/workspace/packages/python/compass_lib:/workspace/packages/python/openspeleo_lib:/app"
-  RUSTUP_TOOLCHAIN: stable
   UV_CACHE_DIR: /monorepo-python-build-cache/uv
 
 x-monorepo-web-environment: &monorepo_web_environment
@@ -137,9 +134,6 @@ services:
     image: "${COMPOSE_PROJECT_NAME}-django"
     user: dev-user
     restart: unless-stopped
-    build:
-      args:
-        DOCKER_INCLUDE_MONOREPO_RUST_TOOLCHAIN: "1"
     container_name: "${COMPOSE_INSTANCE_PREFIX:-${COMPOSE_PROJECT_NAME}}-celery-worker"
     environment: *monorepo_web_environment
     network_mode: !reset null
@@ -156,9 +150,6 @@ services:
     image: "${COMPOSE_PROJECT_NAME}-django"
     user: dev-user
     restart: unless-stopped
-    build:
-      args:
-        DOCKER_INCLUDE_MONOREPO_RUST_TOOLCHAIN: "1"
     container_name: "${COMPOSE_INSTANCE_PREFIX:-${COMPOSE_PROJECT_NAME}}-celery-beat"
     environment: *monorepo_web_environment
     network_mode: !reset null
@@ -189,9 +180,6 @@ services:
   setup:
     image: "${COMPOSE_PROJECT_NAME}-django"
     user: root
-    build:
-      args:
-        DOCKER_INCLUDE_MONOREPO_RUST_TOOLCHAIN: "1"
     container_name: "${COMPOSE_INSTANCE_PREFIX:-${COMPOSE_PROJECT_NAME}}-setup"
     environment: *monorepo_setup_environment
     network_mode: !reset null

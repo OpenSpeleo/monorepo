@@ -70,11 +70,11 @@ jobs:
           submodules: recursive
       - uses: docker/setup-buildx-action@v4.4.1
       - name: Read devcontainer Compose build configuration
-        # Webserver, workers, and setup use the same Dockerfile/args as django.
+        # Webserver shares Django build inputs; workers and setup reuse its image.
         run: |
           docker compose --env-file /dev/null \
             -f apps/web/local.yml -f .devcontainer/compose.override.yml \
-            build --print django postgres > "$RUNNER_TEMP/devcontainer-bake.json"
+            build --print django > "$RUNNER_TEMP/devcontainer-bake.json"
       - name: Build devcontainer images
         uses: docker/bake-action@v7.4.0
         with:
@@ -83,5 +83,3 @@ jobs:
             *.output=type=cacheonly
             django.cache-from=type=gha,scope=devcontainer-django
             django.cache-to=type=gha,scope=devcontainer-django,mode=max
-            postgres.cache-from=type=gha,scope=devcontainer-postgres
-            postgres.cache-to=type=gha,scope=devcontainer-postgres,mode=max
