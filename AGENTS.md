@@ -17,6 +17,24 @@ changes without an explicit request for that action. If the user tells you to
 stop Git operations, stop immediately and do not attempt to undo previous Git
 actions without a new explicit request.
 
+## Temporary agent files
+
+Keep agent plans, task lists, TODO tracking, progress notes, review notes, and
+scratch lessons outside the repository tree, including all submodules. Use a
+unique task directory under `/tmp/` (for example, create one with
+`mktemp -d /tmp/sdb-monorepo-task.XXXXXX`) or another OS temporary directory
+whose resolved path is outside every checkout.
+
+Never create or update these working files inside the checkout, even in ignored
+directories such as `tasks/`, `todos/`, `.cursor`, or `plans/`. Never stage or
+commit them.
+
+Existing tracked task and lesson files are historical references; do not append
+new work to them. Keep durable product and architecture documentation in
+`docs/`, without embedding task checklists or linking to temporary files. Before
+an authorized commit, inspect the staged filenames and exclude all agent working
+files.
+
 ## Scope and instruction hierarchy
 
 These instructions apply from the monorepo root. Each standalone submodule may
