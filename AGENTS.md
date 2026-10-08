@@ -45,8 +45,8 @@ and publication behavior. Run root orchestration commands from the root.
 
 ## Repository model
 
-This integration repository contains eleven Git submodules. `.gitmodules` is the
-sole authoritative mapping of names, paths, original URLs, and tracking
+This integration repository contains thirteen Git submodules. `.gitmodules` is
+the sole authoritative mapping of names, paths, original URLs, and tracking
 branches. Each parent gitlink pins an exact commit; branch configuration does
 not make normal checkout follow upstream automatically.
 
@@ -62,9 +62,11 @@ not make normal checkout follow upstream automatically.
 | `packages/python/openspeleo_core` | `packages/python/openspeleo_core` | `master`        |
 | `packages/python/openspeleo_lib`  | `packages/python/openspeleo_lib`  | `master`        |
 | `packages/rust/compass_data`      | `packages/rust/compass_data`      | `main`          |
+| `packages/typescript/map-core`    | `packages/typescript/map-core`    | `master`        |
+| `packages/typescript/map-viewer`  | `packages/typescript/map-viewer`  | `master`        |
 | `utilities/git-backup-cronjob`    | `utilities/git-backup-cronjob`    | `master`        |
 
-Future JavaScript packages belong under `packages/typescript/`; the npm
+Future JavaScript packages belong under `packages/typescript/`; the Bun
 workspace glob is `packages/typescript/*/` to match directories only.
 
 Use native Git for submodule updates, branches, and publication. Do not add root
@@ -144,9 +146,9 @@ explicitly from the root; use `--files` for untracked additions. Root hooks and
 automatic prek discovery exclude `utilities/`. Never install Git hooks.
 
 Root-only orchestration includes `.devcontainer/`, root `.github/`, `.vscode/`,
-`.gitmodules`, `.npmrc`, `.pre-commit-config.yaml`, `.prekignore`, root npm and
-Python manifests/locks, `rust-toolchain.toml`, `README.md`, and `AGENTS.md`. The
-reserved `packages/typescript/README.md` also belongs to the parent.
+`.gitmodules`, `bunfig.toml`, `.pre-commit-config.yaml`, `.prekignore`, root Bun
+and Python manifests/locks, `rust-toolchain.toml`, `README.md`, and `AGENTS.md`.
+The reserved `packages/typescript/README.md` also belongs to the parent.
 
 Never copy root orchestration into an upstream product PR. Files below each
 submodule path belong to that repository, including locks, nested `.gitmodules`,
@@ -161,11 +163,12 @@ Clone recursively with native Git. Initialize an existing clean checkout using
 Preserve intentional branches, dirty work, and gitlink differences; do not
 update those checkouts automatically.
 
-Root dependency installation uses `npm ci` and
+Root dependency installation uses `bun run install:local` and
 `uv sync --python 3.14 --all-extras --frozen`. Application build and test
 commands run directly in the owning child repository. There are no root Make
-wrappers, orchestration scripts, or custom tests. The `.devcontainer` scripts
-remain responsible for the container's runtime setup.
+wrappers, child check dispatchers, or custom tests. The root installation
+projection is the sole TypeScript dependency integration command. The
+`.devcontainer` scripts remain responsible for the container's runtime setup.
 
 ## Git workflow
 
@@ -224,7 +227,7 @@ git diff --cached --name-only
 1. Verify a unique name/path, original URL, and existing tracking branch.
 2. Use native `git submodule add --name <name> -b <branch> <url> <path>`.
 3. Preserve standalone instructions, locks, CI, and nested submodules.
-4. Update npm/uv/editor/container/CI configuration only where needed.
+4. Update Bun/uv/editor/container/CI configuration only where needed.
 5. Add the path to root hook exclusions; each child runs its own checks.
 6. Update README and these instructions.
 7. Validate recursive initialization and relevant standalone/integration builds.
@@ -235,63 +238,85 @@ documentation together. Never silently rename a path or discard its local data.
 
 ## JavaScript and WebNative rules
 
-The root npm workspace contains:
+The root manifest controls workspace discovery. The root installer separately
+projects a dependency graph containing only mobile and the TypeScript packages.
+Web retains an independent Bun installation; do not add it to the projected
+install graph. Root Compose selects `.devcontainer/install-web-packages.mjs`;
+its frozen integration lock preserves the standalone manifest while using live
+local sources.
 
-- `apps/mobile`
-- `apps/web`
-- `packages/typescript/*/`
+Bun is the package manager and JavaScript runtime. Keep `.bun-version`,
+`packageManager`, and `engines.bun` aligned at the exact declared version in the
+root, apps, and TypeScript packages. Do not restore Node version pins, npm
+commands, or package-lock files. Node-compatible APIs and types are supported by
+Bun and do not require a separate Node process.
 
-Node 26 is the repository version. The root package is private.
-
-Keep `.node-version`, `apps/mobile/.node-version`, `apps/web/.node-version`, and
-every future `.node-version` in the workspace or its submodules strictly
-identical, including whitespace and the trailing newline. Update them together
-when changing Node versions. Keep these version files synchronized when changing
-Node versions.
-
-`.npmrc` must retain `install-strategy=nested`. Capacitor dependencies and
-postinstall patch scripts rely on `apps/mobile/node_modules`. Do not switch to a
-hoisted strategy to reduce disk use. If source imports a package directly,
-declare that package directly in the owning app.
+Root and mobile `bunfig.toml` retain `install.linker = "isolated"` so Capacitor
+and postinstall patches can resolve app-local dependencies. Keep
+`[run] bun = true` so package scripts and executable children run with Bun. If
+source imports a package directly, declare it directly in the owning app. Keep
+Vitest and its existing configuration; `bun test` is a different runner. Mobile
+coverage uses Istanbul because Bun's JavaScriptCore runtime does not provide V8
+coverage.
 
 Maintain all relevant locks:
 
-- root `package-lock.json` for integration;
-- `apps/mobile/package-lock.json` for standalone mobile;
-- `apps/web/package-lock.json` for standalone web.
+- root `bun.lock` for integration;
+- `apps/mobile/bun.lock` for standalone mobile;
+- `apps/web/bun.lock` for standalone web;
+- each TypeScript package's `bun.lock` for independent checks;
+- `.devcontainer/web-packages.lock` for the local web overlay.
 
-For a mobile manifest change:
+Standalone installs use `test -s bun.lock && bun install --frozen-lockfile`.
+Root installs use `bun run install:local`, which projects local manifests before
+resolution and guards the frozen root lock. Bun 1.4.2 fetches Git dependencies
+before applying root overrides, so raw root `bun install` is not the local
+development entrypoint. The root-owned `.devcontainer` installer is the narrow
+integration exception to the no-orchestration rule; do not add child test or
+build dispatchers. It keeps canonical child manifests untouched and publishes
+links to live sources after installation. Existing dependency directories are
+retained as ignored backups rather than deleted. For dependency changes, resolve
+the standalone child lock outside the enclosing workspace, then refresh the root
+integration lock. A child command must not silently validate the parent graph.
+Mobile's lock hook uses its isolated standalone lock checker. Review approved
+`trustedDependencies` when changing the graph.
+
+Web uses its pinned Bun runtime from `/app` in the existing container. Refresh
+the root overlay with
+`bun /workspace/.devcontainer/install-web-packages.mjs --refresh-lock` after
+manifest changes. The projection lives on the existing shared cache volume at
+`/monorepo-python-build-cache/web-packages`, accessible at the same path in
+every service. Its OS lock serializes projection, install, and link publication.
+Validate standalone and root installs when changing dependency topology; absent
+Git remotes are an explicit standalone release gate, never permission to
+fabricate URLs or SHAs.
+
+Workspace discovery uses the standard workspace manifest. Preserve the trailing
+slash in `packages/typescript/*/` so the reserved README is not misidentified as
+another application. Do not add a second WebNative-specific project registry
+unless required by an upstream change.
+
+Run `bun run install:local` on the host for normal mobile/library development.
+Never run it against `/workspace` in the web devcontainer: those dependency
+directories are host bind mounts, unlike web's named dependency volume.
+Container validation uses an isolated source snapshot under `/tmp` with its own
+Linux dependencies, then runs the owning child commands:
 
 ```bash
-npm install --prefix apps/mobile \
-  --package-lock-only --ignore-scripts --workspaces=false
-npm install --package-lock-only --ignore-scripts
+bun run install:local
+cd apps/mobile
+bun run lint
+bun run test:ci
+bun run build
+bun run cap sync
+test -d node_modules/@capacitor/core
 ```
 
-Use `apps/web` for a web change. Validate standalone and root installs when
-changing dependency topology.
-
-The mobile lock pre-commit check must retain `--workspaces=false`, otherwise it
-validates the root workspace instead of the standalone lock.
-
-WebNative discovers mobile and web through the npm workspace. Preserve the
-trailing slash in `packages/typescript/*/` so the reserved README is not
-misidentified as another application. Do not add a second WebNative-specific
-project registry unless required by an upstream change.
-
-Relevant checks:
-
-```bash
-npm ci
-npm run lint --workspace=apps/mobile
-npm run test:ci --workspace=apps/mobile
-npm run test:js --workspace=apps/web
-npm run build --workspace=apps/mobile
-npm exec --workspace=apps/mobile -- cap sync
-test -d apps/mobile/node_modules/@capacitor/core
-```
-
-Capacitor sync must not introduce unexplained tracked Android/iOS path drift.
+Web checks run from `/app`, for example
+`docker exec -w /app speleodb-monorepo-django bun run test:frontend`. Capacitor
+sync must not introduce unexplained tracked Android/iOS path drift. Use the
+canonical `cap` script: its Bun `--preserve-symlinks` flag keeps native plugin
+paths relative to app-local `node_modules`, rather than embedding cache paths.
 
 ## Python and uv rules
 
@@ -438,7 +463,7 @@ image-owned `/opt/speleodb-venv/bin/python`.
 
 When changing editor configuration, verify that:
 
-- WebNative still discovers mobile and web through npm workspaces;
+- WebNative still discovers mobile through the Bun workspace manifest;
 - Gradle still imports Ariane and exposes tasks/shortcuts;
 - rust-analyzer loads both independent manifests;
 - host and Linux virtual environments do not collide.
@@ -463,23 +488,23 @@ Required invariants:
 - web application mount remains `/app`;
 - `/app/node_modules` remains a devcontainer-specific named volume whose name
   follows `COMPOSE_INSTANCE_PREFIX`, so Linux installs never contaminate either
-  host-native npm dependencies or the standalone Compose volume;
+  host-native JavaScript dependencies or the standalone Compose volume;
 - `django`, `django-webserver`, `celery-worker`, `celery-beat`, and `setup`
   mount that same volume at `/workspace/apps/web/node_modules`, because root
   prek runs web hooks from the monorepo path and every alias must resolve the
   same Linux-native packages;
-- setup initializes the Node volume for `dev-user`; the `django` and
-  `django-webserver` services run as `dev-user`, and no normal monorepo npm or
-  Vite process writes dependencies as root;
+- setup initializes the JavaScript dependency volume for `dev-user`; the
+  `django` and `django-webserver` services run as `dev-user`, and no normal
+  monorepo Bun or Vite process writes dependencies as root;
 - root `devcontainer.json` retains `updateRemoteUserUID: false`, preventing an
   editor from changing only the workspace container's `dev-user` UID and making
-  the shared Node or Python build-cache volumes unwritable;
+  the shared JavaScript or Python build-cache volumes unwritable;
 - the shared devcontainer environment sets Git's environment-backed explicit
   `safe.directory` entries for `/workspace`, all configured submodule roots, and
   Ariane's two nested APIs before lifecycle commands; preserve this trust when
   dropping privileges. Wildcard trust belongs only in the private test env;
 - Git operations use `/workspace/...`, where relative submodule metadata
-  resolves; `/app` remains the application/npm execution path. Initialize
+  resolves; `/app` remains the application/Bun execution path. Initialize
   submodules on the host before opening the devcontainer;
 - `.devcontainer/prepare-web-node-modules.sh` checks the volume root before any
   recursive ownership migration; do not replace it with an unconditional startup
@@ -550,7 +575,8 @@ Required invariants:
 - the root override sets `name: speleodb-monorepo`; containers, locally built
   images, network, and volumes default to `speleodb-monorepo-*`. Use
   `COMPOSE_PROJECT_NAME` for project-scoped resource names and allow
-  `COMPOSE_INSTANCE_PREFIX` to override container and Node-volume prefixes;
+  `COMPOSE_INSTANCE_PREFIX` to override container and dependency-volume
+  prefixes;
 - changing the project name creates a separate stack and volumes; it does not
   rename or migrate the old `web` project. Preserve existing containers and
   volumes, and do not silently switch existing development data;
@@ -573,7 +599,7 @@ Required invariants:
   SDK, and Apple tooling remain outside the web devcontainer;
 - post-create reuses `.devcontainer/sync-openspeleo-core.sh` to install the
   editable package into the workspace service and verifies all four overlaid
-  imports, but never runs root npm/uv synchronization, `cargo install`, or
+  imports, but never runs root Bun/uv synchronization, `cargo install`, or
   builds/checks for another application submodule;
 - Django Debug Toolbar remains installed and visible in local development, with
   every canonical default panel listed in `DISABLE_PANELS`; do not remove the
@@ -613,11 +639,11 @@ editor-specific port forwarding for that response.
 `.github/workflows/ci.yml` runs on pull requests and pushes to `master`:
 
 1. Root `prek run -a`.
-2. `uv lock --check` and `npm ci --ignore-scripts --no-audit --no-fund`, running
-   in parallel after prek.
+2. `uv lock --check` and `bun run install:local --ignore-scripts`, running in
+   parallel after prek.
 3. Build the devcontainer images after both lock checks pass.
 
-Cache prek environments, uv and npm downloads, and Docker layers. Use the
+Cache prek environments, uv and Bun downloads, and Docker layers. Use the
 existing Compose files for the devcontainer build. Django and PostgreSQL are its
 two image builds; webserver, worker, scheduler, and setup share Django's
 Dockerfile and args. Every job checks out the pinned submodules recursively.
@@ -658,7 +684,7 @@ When structure or tooling changes, update every applicable surface:
 - `README.md`
 - `AGENTS.md`
 
-Keep documentation aligned with native Git, npm, uv, and Compose commands.
+Keep documentation aligned with native Git, Bun, uv, and Compose commands.
 
 ## Completion and handoff
 
@@ -676,3 +702,22 @@ Before finishing:
    a PR.
 
 Never imply that root validation deploys or releases a standalone project.
+
+## Shared map package distribution
+
+`packages/typescript/map-core` and `map-viewer` are registered submodules backed
+by `OpenSpeleo/SpeleoDB-TS-MapCore` and `OpenSpeleo/SpeleoDB-TS-MapViewer`.
+Verify upstream reachability before changing dependency pins or parent gitlinks.
+Their manifests remain private; distribution uses public GitHub full-SHA
+dependencies, never npm publication.
+
+The root and web Bun manifest projections own local source resolution. Both apps
+and viewer-to-core must resolve locally before any shared dependency fetch. Both
+local and standalone builds consume TypeScript source exports, including source
+type exports. Applications compile package code in their normal Vite build; Bun
+executes it directly. `dist/` is ignored and excluded from both map packages.
+Their explicit `build` scripts smoke-test browser compilation; there are no
+dependency installation build hooks or committed-artifact checks. Applications
+retain `speleodb-source` only as compatibility with older Git pins that already
+ship source. Local-package flags validate workspace links, never select compiled
+artifacts. See `packages/typescript/README.md` for distribution and ownership.

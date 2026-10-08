@@ -26,9 +26,8 @@ tracking branches; parent gitlinks pin exact commits.
 | `packages/python/openspeleo_core` | [openspeleo_core](https://github.com/OpenSpeleo/openspeleo_core)             | Rust/PyO3 native extension exposed as a Python package, including XML conversion helpers. |
 | `packages/python/openspeleo_lib`  | [pytool_openspeleo_lib](https://github.com/OpenSpeleo/pytool_openspeleo_lib) | Shared Python library for reading, writing, validating, and converting cave-survey data.  |
 | `packages/rust/compass_data`      | [compass_data](https://github.com/zheylmun/compass_data)                     | Rust library for Compass project (`.mak`) and survey (`.dat`) files.                      |
-
-`packages/typescript/` is reserved for future shared TypeScript packages. Its
-README belongs to the parent repository; it is not a submodule.
+| `packages/typescript/map-core`    | [SpeleoDB-TS-MapCore](https://github.com/OpenSpeleo/SpeleoDB-TS-MapCore)     | Shared TypeScript map algorithms.                                                         |
+| `packages/typescript/map-viewer`  | [SpeleoDB-TS-MapViewer](https://github.com/OpenSpeleo/SpeleoDB-TS-MapViewer) | Shared MapLibre specifications and assets.                                                |
 
 ### Operational services
 
@@ -55,8 +54,8 @@ recursive clone.
 | `.devcontainer/`                          | Shared web development container layered on the web repository's Compose configuration. |
 | `.github/workflows/ci.yml`                | Root checks, dependency-lock validation, and devcontainer build.                        |
 | `.vscode/`                                | Editor settings and recommended extensions.                                             |
-| `package.json` / `package-lock.json`      | npm workspace and its integration lock.                                                 |
-| `.npmrc`                                  | Nested npm dependency installation.                                                     |
+| `package.json` / `bun.lock`               | Bun workspace and its integration lock.                                                 |
+| `bunfig.toml` / `.bun-version`            | Isolated dependency installation and pinned Bun runtime.                                |
 | `pyproject.toml` / `uv.lock`              | Python integration environment and its lock.                                            |
 | `rust-toolchain.toml`                     | Rust toolchain, components, and WebAssembly target.                                     |
 | `.pre-commit-config.yaml` / `.prekignore` | Root pre-commit checks and repository boundaries.                                       |
@@ -68,19 +67,27 @@ git clone --recurse-submodules git@github.com:OpenSpeleo/monorepo.git
 cd monorepo
 ```
 
-Use Node from `.node-version`, Python 3.14, and uv 0.12.17 or newer. Install the
-shared dependency environments when needed:
+Use Bun from `.bun-version`, Python 3.14, and uv 0.12.17 or newer. Install the
+shared dependency environments on the host when needed:
 
 ```bash
-npm ci
+bun run install:local
 uv sync --python 3.14 --all-extras --frozen
 ```
 
-The npm workspace includes mobile, web, and future `packages/typescript/*/`
-packages. Keep `.npmrc`'s nested installation strategy so mobile dependencies
-remain app-local. The root Python project uses editable library sources and a
-virtual web dependency; it is not a uv workspace. Child locks remain
-independent.
+The root manifest controls workspace discovery. The installer separately
+projects a dependency workspace containing only mobile and the TypeScript
+packages. Web retains its standalone Bun installation; the devcontainer supplies
+live local map packages through an automatic root-owned installation overlay.
+Keep Bun's isolated linker so mobile dependencies remain app-local. The
+installer rewrites shared dependencies to local workspaces before resolution
+because Bun attempts Git fetches before applying overrides. Standalone manifests
+stay unchanged. Container validation uses an isolated source snapshot; never
+install Linux mobile/package modules into the host bind mount. The root Python
+project uses editable library sources and a virtual web dependency; it is not a
+uv workspace. Child locks remain independent. Bun also runs JavaScript builds,
+tools and Vitest; no separate Node installation is required. Each `bunfig.toml`
+keeps `[run] bun = true` to apply that runtime to child executables.
 
 Copy application `.env.dist` templates only when their local files are missing.
 Preserve existing environment files. Follow each child's README and `AGENTS.md`
@@ -140,17 +147,16 @@ configuration issue.
 The workflow runs on pull requests and pushes to `master`, in this order:
 
 1. `prek run -a` using the root configuration.
-2. In parallel: `uv lock --check` and
-   `npm ci --ignore-scripts --no-audit --no-fund`.
+2. In parallel: `uv lock --check` and `bun run install:local --ignore-scripts`.
 3. Build the devcontainer's Django and PostgreSQL images from the merged Compose
    configuration. Webserver, worker, scheduler, and setup services share the
    Django Dockerfile and build arguments.
 
 Every job checks out pinned submodules recursively. CI caches prek environments,
-uv downloads, npm downloads, and Docker build layers. It does not run child test
+uv downloads, Bun downloads, and Docker build layers. It does not run child test
 suites, start the devcontainer services, publish images, or deploy applications.
 
-The npm check validates the root lock without running lifecycle scripts. The uv
+The Bun check validates the root lock without running lifecycle scripts. The uv
 check validates the root lock without installing the project. The image build
 uses Buildx with separate GitHub Actions cache scopes for Django and PostgreSQL.
 

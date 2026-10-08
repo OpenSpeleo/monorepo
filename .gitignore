@@ -157,7 +157,7 @@ cython_debug/
 .uv/
 
 # Root JavaScript workspace
-/node_modules/
+/node_modules
 
 # PyCharm
 #  JetBrains specific template is maintained in a separate JetBrains.gitignore that can

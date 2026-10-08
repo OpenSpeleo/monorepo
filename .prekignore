@@ -7,3 +7,6 @@ apps/compass_sidecar/
 packages/rust/
 # Operational utilities use their shared config explicitly from the root.
 utilities/
+# Shared TypeScript packages own standalone checks.
+packages/typescript/map-core/
+packages/typescript/map-viewer/

@@ -9,6 +9,7 @@ fi
 
 /workspace/.devcontainer/prepare-web-node-modules.sh
 /workspace/.devcontainer/sync-openspeleo-core.sh
+bun /workspace/.devcontainer/install-web-packages.mjs
 
 python - <<'PY'
 from pathlib import Path

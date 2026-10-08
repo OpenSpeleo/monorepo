@@ -13,6 +13,8 @@ exclude: >-
     |packages/python/mnemo_lib/
     |packages/python/openspeleo_core/
     |packages/python/openspeleo_lib/
+    |packages/typescript/map-core/
+    |packages/typescript/map-viewer/
     |packages/rust/
     |utilities/
   )
@@ -46,6 +48,9 @@ repos:
     hooks:
       - id: prettier
         name: prettier markdown
+        entry: bun run --bun prettier --write --ignore-unknown
+        language: bun
+        language_version: system
         types_or: [markdown]
         args: [--prose-wrap=always]
         # args: [--prose-wrap=always, --embedded-language-formatting=off]

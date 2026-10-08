@@ -47,6 +47,16 @@
 	url = https://github.com/zheylmun/compass_data.git
 	branch = main
 
+[submodule "packages/typescript/map-core"]
+	path = packages/typescript/map-core
+	url = ../SpeleoDB-TS-MapCore.git
+	branch = master
+
+[submodule "packages/typescript/map-viewer"]
+	path = packages/typescript/map-viewer
+	url = ../SpeleoDB-TS-MapViewer.git
+	branch = master
+
 [submodule "utilities/git-backup-cronjob"]
 	path = utilities/git-backup-cronjob
 	url = ../SpeleoDB_Git_Backup_CronJob.git
