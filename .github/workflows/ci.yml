@@ -1,3 +1,4 @@
+---
 name: Monorepo validation
 
 on:
@@ -74,7 +75,8 @@ jobs:
         run: |
           docker compose --env-file /dev/null \
             -f apps/web/local.yml -f .devcontainer/compose.override.yml \
-            build --print django postgres > "$RUNNER_TEMP/devcontainer-bake.json"
+            build --print django postgres \
+            > "$RUNNER_TEMP/devcontainer-bake.json"
       - name: Build devcontainer images
         uses: docker/bake-action@v7.4.0
         with:

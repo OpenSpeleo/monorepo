@@ -1,3 +1,4 @@
+---
 name: speleodb-monorepo
 
 volumes:
@@ -50,7 +51,8 @@ x-monorepo-python-environment: &monorepo_python_environment
   GIT_CONFIG_KEY_9: safe.directory
   GIT_CONFIG_VALUE_9: /workspace/packages/python/openspeleo_lib
   GIT_CONFIG_KEY_10: safe.directory
-  GIT_CONFIG_VALUE_10: /workspace/apps/ariane_plugin/com.arianesline.ariane.plugin.api
+  GIT_CONFIG_VALUE_10: >-
+    /workspace/apps/ariane_plugin/com.arianesline.ariane.plugin.api
   GIT_CONFIG_KEY_11: safe.directory
   GIT_CONFIG_VALUE_11: /workspace/apps/ariane_plugin/com.arianesline.cavelib.api
   GIT_CONFIG_KEY_12: safe.directory
@@ -58,7 +60,10 @@ x-monorepo-python-environment: &monorepo_python_environment
   GIT_CONFIG_KEY_13: safe.directory
   GIT_CONFIG_VALUE_13: /workspace/utilities/git-backup-cronjob
   # Shells start in /workspace; the shared entrypoint imports compose from /app.
-  PYTHONPATH: "/workspace/packages/python/openspeleo_core/src_python:/workspace/packages/python/mnemo_lib:/workspace/packages/python/compass_lib:/workspace/packages/python/openspeleo_lib:/app"
+  PYTHONPATH: "/workspace/packages/python/openspeleo_core/src_python:\
+    /workspace/packages/python/mnemo_lib:\
+    /workspace/packages/python/compass_lib:\
+    /workspace/packages/python/openspeleo_lib:/app"
   RUSTUP_TOOLCHAIN: stable
   UV_CACHE_DIR: /monorepo-python-build-cache/uv
 
@@ -104,7 +109,8 @@ services:
 
   postgres:
     image: "postgres:16-alpine"
-    container_name: "${COMPOSE_INSTANCE_PREFIX:-${COMPOSE_PROJECT_NAME}}-postgres"
+    container_name: >-
+      ${COMPOSE_INSTANCE_PREFIX:-${COMPOSE_PROJECT_NAME}}-postgres
     restart: unless-stopped
 
   redis:
@@ -118,7 +124,8 @@ services:
     build:
       args:
         DOCKER_INCLUDE_MONOREPO_RUST_TOOLCHAIN: "1"
-    container_name: "${COMPOSE_INSTANCE_PREFIX:-${COMPOSE_PROJECT_NAME}}-django-webserver"
+    container_name: >-
+      ${COMPOSE_INSTANCE_PREFIX:-${COMPOSE_PROJECT_NAME}}-django-webserver
     depends_on:
       django:
         condition: service_started
@@ -131,7 +138,9 @@ services:
     command:
       - /bin/bash
       - -c
-      - /workspace/.devcontainer/prepare-web-node-modules.sh && /workspace/.devcontainer/sync-openspeleo-core.sh && exec /start
+      - >-
+        /workspace/.devcontainer/prepare-web-node-modules.sh &&
+        /workspace/.devcontainer/sync-openspeleo-core.sh && exec /start
 
   celery-worker:
     image: "${COMPOSE_PROJECT_NAME}-django"
@@ -140,7 +149,8 @@ services:
     build:
       args:
         DOCKER_INCLUDE_MONOREPO_RUST_TOOLCHAIN: "1"
-    container_name: "${COMPOSE_INSTANCE_PREFIX:-${COMPOSE_PROJECT_NAME}}-celery-worker"
+    container_name: >-
+      ${COMPOSE_INSTANCE_PREFIX:-${COMPOSE_PROJECT_NAME}}-celery-worker
     environment: *monorepo_web_environment
     network_mode: !reset null
     volumes:
@@ -150,7 +160,10 @@ services:
     command:
       - /bin/bash
       - -c
-      - /workspace/.devcontainer/prepare-web-node-modules.sh && /workspace/.devcontainer/sync-openspeleo-core.sh && exec /start-celeryworker
+      - >-
+        /workspace/.devcontainer/prepare-web-node-modules.sh &&
+        /workspace/.devcontainer/sync-openspeleo-core.sh &&
+        exec /start-celeryworker
 
   celery-beat:
     image: "${COMPOSE_PROJECT_NAME}-django"
@@ -159,7 +172,8 @@ services:
     build:
       args:
         DOCKER_INCLUDE_MONOREPO_RUST_TOOLCHAIN: "1"
-    container_name: "${COMPOSE_INSTANCE_PREFIX:-${COMPOSE_PROJECT_NAME}}-celery-beat"
+    container_name: >-
+      ${COMPOSE_INSTANCE_PREFIX:-${COMPOSE_PROJECT_NAME}}-celery-beat
     environment: *monorepo_web_environment
     network_mode: !reset null
     volumes:
@@ -169,14 +183,18 @@ services:
     command:
       - /bin/bash
       - -c
-      - /workspace/.devcontainer/prepare-web-node-modules.sh && /workspace/.devcontainer/sync-openspeleo-core.sh && exec /start-celerybeat
+      - >-
+        /workspace/.devcontainer/prepare-web-node-modules.sh &&
+        /workspace/.devcontainer/sync-openspeleo-core.sh &&
+        exec /start-celerybeat
 
   kanchi:
     container_name: "${COMPOSE_INSTANCE_PREFIX:-${COMPOSE_PROJECT_NAME}}-kanchi"
     restart: unless-stopped
 
   celery-test-redis:
-    container_name: "${COMPOSE_INSTANCE_PREFIX:-${COMPOSE_PROJECT_NAME}}-celery-test-redis"
+    container_name: >-
+      ${COMPOSE_INSTANCE_PREFIX:-${COMPOSE_PROJECT_NAME}}-celery-test-redis
 
   gitlab:
     container_name: "${COMPOSE_INSTANCE_PREFIX:-${COMPOSE_PROJECT_NAME}}-gitlab"
@@ -202,4 +220,7 @@ services:
     command:
       - /bin/bash
       - -c
-      - /workspace/.devcontainer/prepare-web-node-modules.sh && /workspace/.devcontainer/sync-openspeleo-core.sh && exec /app/compose/setup
+      - >-
+        /workspace/.devcontainer/prepare-web-node-modules.sh &&
+        /workspace/.devcontainer/sync-openspeleo-core.sh &&
+        exec /app/compose/setup
