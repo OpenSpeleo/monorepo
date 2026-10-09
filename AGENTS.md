@@ -722,8 +722,10 @@ Never imply that root validation deploys or releases a standalone project.
 `packages/typescript/map-core` and `map-viewer` are registered submodules backed
 by `OpenSpeleo/SpeleoDB-TS-MapCore` and `OpenSpeleo/SpeleoDB-TS-MapViewer`.
 Verify upstream reachability before changing dependency pins or parent gitlinks.
-Their manifests remain private; distribution uses public GitHub full-SHA
-dependencies, never npm publication.
+Their manifests permit public npm publication. Standalone apps pin exact npm
+versions and matching core overrides; viewer accepts core `>=0.1.0 <1.0.0`. Keep
+standalone registry locks separate from the live local source projections.
+Publishing still requires explicit user authorization.
 
 The root and web Bun manifest projections own local source resolution. Both apps
 and viewer-to-core must resolve locally before any shared dependency fetch. Both

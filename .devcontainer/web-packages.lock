@@ -45,8 +45,10 @@
     "packages/map-viewer": {
       "name": "@speleodb/map-viewer",
       "version": "0.1.0",
+      "dependencies": {
+        "@speleodb/map-core": "workspace:*",
+      },
       "peerDependencies": {
-        "@speleodb/map-core": "^0.1.0",
         "maplibre-gl": "6.10.0",
       },
     },

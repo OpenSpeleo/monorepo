@@ -106,17 +106,12 @@ using Bun's separate test runner. Mobile uses Istanbul coverage with its
 existing thresholds because Bun does not use V8. Node-compatible imports and
 type declarations do not imply a Node runtime requirement.
 
-## Standalone Git distribution
+## Standalone npm distribution
 
-These packages have private Bun-managed manifests and will **never be published
-to npm**. Production consumers use `git+https` GitHub repository URLs pinned to
-full 40-character commit SHAs. Standalone preflight rejects missing or mutable
-pins before installation. The initial published revisions are:
-
-| Package                | Repository                         | Commit                                     |
-| ---------------------- | ---------------------------------- | ------------------------------------------ |
-| `@speleodb/map-core`   | `OpenSpeleo/SpeleoDB-TS-MapCore`   | `6ce42621c441b25903c23ce75533efc1ae6cf79f` |
-| `@speleodb/map-viewer` | `OpenSpeleo/SpeleoDB-TS-MapViewer` | `eb25f5d940bca2827b9c17773dbb9e4e339e90ef` |
+Both packages are configured for public npm publication. Mobile and web pin
+`@speleodb/map-core` and `@speleodb/map-viewer` to exact version `0.1.0`.
+Standalone preflight rejects missing versions, ranges, and Git dependencies;
+frozen Bun locks record registry artifacts and their integrity hashes.
 
 Each package ships TypeScript source, JSON data, assets and license. `types` and
 runtime exports point to `src/*.ts`; Bun executes that source directly, while
@@ -125,32 +120,29 @@ both packages, excluded from package contents, and never required at install or
 runtime. `bun run build` is an explicit Bun browser-compilation smoke check
 whose output is disposable. There are no dependency installation build hooks.
 
-Viewer declares core and MapLibre as peers; apps explicitly depend on both
-packages and exact MapLibre 6.10.0. Viewer development uses a core Git pin. Both
-apps also pin core in Bun `overrides`, matching their direct dependency, so
-resolving viewer's peer cannot query the registry. Current older Git pins
-already ship TypeScript source: the apps select it with `speleodb-source` until
-those pins are updated to default source-export revisions.
+Viewer depends on core `>=0.1.0 <1.0.0` and declares MapLibre 6.10.0 as a peer.
+Apps explicitly depend on both packages and MapLibre 6.10.0. Both apps also pin
+core in Bun `overrides`, matching their direct dependency, so the viewer
+resolves the same core version. The monorepo projects these dependencies to live
+local workspaces before resolution.
 
-For updates, publish reachable package commits containing tested source, update
-viewer's core development pin and both apps' Git pins, regenerate standalone
-locks, and prove fresh frozen installs and source-based app builds. Update
-parent gitlinks only to revisions already reachable upstream. Every commit, push
-and deployment still requires its own authorization.
+For updates, publish tested package versions, update both apps' npm versions,
+regenerate standalone locks, and prove fresh frozen installs and source-based
+app builds. Update parent gitlinks only to revisions already reachable upstream.
+Every commit, push and deployment still requires its own authorization.
 
 ## CI and Railway
 
 Package CI checks source and test types, unit tests, browser compilation, and
 source archive contents. Applications keep integration, browser, permissions,
 lifecycle, and native tests. Root CI validates orchestration only. No npm
-publication job exists. Standalone checks compile source from pinned Git
-revisions; monorepo checks use the live source projections. A package's updated
-development pin and lock must themselves be committed and pushed before its
-remote CI can consume that update.
+publication job exists. Standalone checks compile source from pinned npm
+releases; monorepo checks use the live source projections. Frozen installs
+verify the registry artifacts against the committed locks.
 
 Railway continues deploying the standalone web repository, with
 `.railway/railway.ts` as the sole service authority and `railpack.json` as the
-build recipe. The image checks Git pins, performs its guarded frozen Bun
+build recipe. The image checks npm version pins, performs its guarded frozen Bun
 install, and builds assets before removing build dependencies. It does not mount
 or clone the monorepo and compiles the installed package sources during its Vite
 build. Database migration, background schedule installation, collectstatic, and
