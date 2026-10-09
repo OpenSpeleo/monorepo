@@ -163,9 +163,9 @@ The workflow runs on pull requests and pushes to `master`, in this order:
 
 1. `prek run -a` using the root configuration.
 2. In parallel: `uv lock --check` and `bun run install:local --ignore-scripts`.
-3. Build the devcontainer's Django and PostgreSQL images from the merged Compose
-   configuration. Webserver, worker, scheduler, and setup services share the
-   Django Dockerfile and build arguments.
+3. Build the devcontainer's Django image from the merged Compose configuration.
+   Webserver, worker, scheduler, and setup services share the Django Dockerfile
+   and build arguments. PostgreSQL uses a prebuilt image.
 
 Every job checks out pinned submodules recursively. CI caches prek environments,
 uv downloads, Bun downloads, and Docker build layers. It does not run child test
@@ -173,7 +173,8 @@ suites, start the devcontainer services, publish images, or deploy applications.
 
 The Bun check validates the root lock without running lifecycle scripts. The uv
 check validates the root lock without installing the project. The image build
-uses Buildx with separate GitHub Actions cache scopes for Django and PostgreSQL.
+uses Buildx with the Django GitHub Actions cache scope and the runner checkout,
+including its initialized submodules.
 
 ## Operational utilities
 

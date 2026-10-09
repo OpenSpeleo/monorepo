@@ -656,9 +656,11 @@ editor-specific port forwarding for that response.
 3. Build the devcontainer images after both lock checks pass.
 
 Cache prek environments, uv and Bun downloads, and Docker layers. Use the
-existing Compose files for the devcontainer build. Django and PostgreSQL are its
-two image builds; webserver, worker, scheduler, and setup share Django's
-Dockerfile and args. Every job checks out the pinned submodules recursively.
+existing Compose files for the devcontainer build. Django is its only image
+build; webserver, worker, scheduler, and setup share Django's Dockerfile and
+args. PostgreSQL uses a prebuilt image and has no Bake target. Every job checks
+out the pinned submodules recursively; Bake uses that runner checkout with
+`source: .` instead of cloning the repository again inside BuildKit.
 
 Do not add custom root tests, orchestration tools, cross-repository pre-commit
 scripts, product checks, or additional CI phases. Child repositories own their
