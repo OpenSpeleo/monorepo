@@ -4,7 +4,9 @@
 
 NEVER stage, unstage, stash, unstash (including stash apply or pop), commit, or
 push unless the user explicitly asks for that specific action. Permission for
-one action does not authorize any of the others. Requests to review, fix,
+one action does not authorize any of the others, except that an explicit request
+to commit also authorizes staging the files needed for that commit. Do not ask
+for separate staging permission in that case. Requests to review, fix,
 implement, test, or finish work do not authorize these Git actions.
 
 Invoking a skill, plugin, workflow, or sub-agent does NOT authorize these Git
@@ -78,7 +80,8 @@ orchestration tools, test suites, or child-check dispatchers.
    overwrite, clean, stage, or reformat unrelated files or gitlinks.
 2. Inspect staged and unstaged state separately before and after work.
 3. Do not stage, commit, push, create a PR, merge, release, or deploy unless the
-   user explicitly requests that action.
+   user explicitly requests that action. A commit request also authorizes
+   staging the files needed for that commit.
 4. Product edits belong to their child repositories. Verify the child's origin
    against `.gitmodules` before publication; never use the parent's origin as a
    product deployment target.
@@ -278,8 +281,17 @@ links to live sources after installation. Existing dependency directories are
 retained as ignored backups rather than deleted. For dependency changes, resolve
 the standalone child lock outside the enclosing workspace, then refresh the root
 integration lock. A child command must not silently validate the parent graph.
-Mobile's lock hook uses its isolated standalone lock checker. Review approved
-`trustedDependencies` when changing the graph.
+The monorepo-only `bun run lock [--upgrade]` command in web, mobile and both map
+packages delegates to `utilities/bun-lock/lock.mjs`. It resolves just the
+calling package in external staging and writes only that child's lock. Upgrade
+mode refreshes the complete graph within unchanged manifest constraints. Keep
+this shared lock utility separate from installation and standalone CI. At the
+monorepo root the same command resolves only the top-level `bun.lock`, using
+`.devcontainer/typescript-projection.mjs` shared with the root installer. It
+includes web, mobile, and TypeScript packages, and leaves child locks, installed
+dependencies, and the web overlay lock untouched. Mobile's lock hook uses its
+isolated standalone lock checker. Review approved `trustedDependencies` when
+changing the graph.
 
 Web uses its pinned Bun runtime from `/app` in the existing container. Refresh
 the root overlay with

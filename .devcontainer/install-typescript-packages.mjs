@@ -3,6 +3,7 @@ import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, readlinkSy
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { projectTypeScriptWorkspace } from './typescript-projection.mjs';
 
 // Bun resolves Git protocols before overrides. Project local workspace metadata
 // before invoking the installer so no shared Git dependency can be fetched.
@@ -48,33 +49,7 @@ function link(path, target) {
     renameSync(temporary, path);
 }
 
-const packageNames = ['map-core', 'map-viewer'];
-const workspacePaths = ['apps/mobile', ...readdirSync(join(workspace, 'packages/typescript'), { withFileTypes: true })
-    .filter(entry => entry.isDirectory() && existsSync(join(workspace, 'packages/typescript', entry.name, 'package.json')))
-    .map(entry => `packages/typescript/${entry.name}`)].sort();
-for (const name of packageNames) {
-    const source = join(workspace, 'packages/typescript', name);
-    if (!existsSync(join(source, 'src/index.ts'))) {
-        throw new Error(`Local ${name} source is missing: ${source}. No remote fallback is permitted.`);
-    }
-}
-const canonical = JSON.parse(readFileSync(join(workspace, 'package.json'), 'utf8'));
-const manifest = { ...canonical, workspaces: workspacePaths };
-const projections = workspacePaths.map(relative => {
-    const directory = join(workspace, relative);
-    const original = JSON.parse(readFileSync(join(directory, 'package.json'), 'utf8'));
-    const projected = structuredClone(original);
-    for (const group of ['dependencies', 'devDependencies', 'optionalDependencies']) {
-        for (const name of packageNames) {
-            if (projected[group]?.[`@speleodb/${name}`]) projected[group][`@speleodb/${name}`] = 'workspace:*';
-        }
-    }
-    // Child overrides belong to standalone installs. Only the root overlay's
-    // overrides apply to this graph, including viewer-to-core peer resolution.
-    delete projected.overrides;
-    projected.speleodbLocalSources = true;
-    return { relative, directory, projected };
-});
+const { manifest, projections, workspacePaths } = projectTypeScriptWorkspace(workspace);
 if (!refresh && (!existsSync(lockPath) || !readFileSync(lockPath, 'utf8').trim())) {
     throw new Error('The monorepo TypeScript lock is missing. Run bun run install:local --refresh-lock and review bun.lock.');
 }

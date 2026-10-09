@@ -89,6 +89,21 @@ uv workspace. Child locks remain independent. Bun also runs JavaScript builds,
 tools and Vitest; no separate Node installation is required. Each `bunfig.toml`
 keeps `[run] bun = true` to apply that runtime to child executables.
 
+To resolve a child standalone Bun lock without touching the parent lock, run
+`bun run lock` from `apps/web`, `apps/mobile`, `packages/typescript/map-core`,
+or `packages/typescript/map-viewer`. Add `--upgrade` to refresh direct and
+transitive versions within their declared constraints. All four commands use the
+same [isolated lock utility](utilities/bun-lock/README.md); they do not install
+packages or change manifests. This convenience command requires the monorepo.
+
+From the monorepo root, the same `bun run lock [--upgrade]` command updates only
+the top-level `bun.lock`, including web, mobile, and TypeScript packages with
+local map dependencies. It shares dependency projection rules with
+`install:local`, which installs only mobile and the TypeScript packages; web
+retains its separate installation. Child locks and
+`.devcontainer/web-packages.lock` remain separate. Run `bun run install:local`
+afterward when installed dependencies need updating.
+
 Copy application `.env.dist` templates only when their local files are missing.
 Preserve existing environment files. Follow each child's README and `AGENTS.md`
 for application commands and toolchains.
