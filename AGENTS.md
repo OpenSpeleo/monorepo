@@ -605,17 +605,17 @@ Required invariants:
   rename or migrate the old `web` project. Preserve existing containers and
   volumes, and do not silently switch existing development data;
 - Run the existing `/start` from `/app` inside the container.
-- Django port 8000 and Kanchi port 8765 are published on host loopback;
-  `forwardPorts` remains unset so Zed cannot add conflicting bindings. Preserve
-  upstream dependency port mappings, including browser-facing GitLab and RustFS
-  endpoints;
+- Django port 8000 is published on host loopback; `forwardPorts` remains unset
+  so Zed cannot add conflicting bindings. Preserve upstream dependency port
+  mappings, including browser-facing GitLab and RustFS endpoints;
 - test S3 presigned/browser URLs use `http://rustfs:9000` so container-local
   HTTP tests can reach storage; development browser URLs retain
   `http://localhost:9000`;
-- the active service graph includes `celery-worker`, `celery-beat`, and
-  `kanchi`; Celery services share the source overlays, Python/native
-  environment, cache mounts, and Compose networking, and use Redis database 1
-  for their broker;
+- the active service graph includes `celery-worker` and `celery-beat`; Celery
+  services share the source overlays, Python/native environment, cache mounts,
+  and Compose networking, and use Redis database 1 for their broker. Task
+  history uses the application database and Django admin; do not restore a
+  separate monitoring service or monitoring-database provisioning;
 - the image's `/opt/speleodb-venv/bin/python` and installed web dependencies
   remain the container Python environment;
 - stable Rust and Cargo exist only for the editable `openspeleo_core` web

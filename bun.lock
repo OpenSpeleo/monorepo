@@ -120,9 +120,11 @@
     },
     "packages/typescript/map-core": {
       "name": "@speleodb/map-core",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "dependencies": {
         "@types/geojson": "7946.0.16",
+        "@types/polylabel": "2.0.0",
+        "polylabel": "2.1.0",
       },
       "devDependencies": {
         "@eslint/js": "9.39.5",
@@ -137,7 +139,7 @@
     },
     "packages/typescript/map-viewer": {
       "name": "@speleodb/map-viewer",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "dependencies": {
         "@speleodb/map-core": "workspace:*",
       },
@@ -155,7 +157,7 @@
         "vitest": "5.0.4",
       },
       "peerDependencies": {
-        "maplibre-gl": "6.10.0",
+        "maplibre-gl": ">=6.10.0 <7.0.0",
       },
     },
   },
@@ -687,6 +689,8 @@
     "@types/json-schema": ["@types/json-schema@7.0.15", "", {}, "sha512-5+fP8P8MFNC+AyZCDxrB2pkZFPGzqQWUzpSeuuVLvm8VMcorNYavBqoFcxK8bQz4Qsbn4oUEEem4wDLfcysGHA=="],
 
     "@types/node": ["@types/node@26.6.4", "", { "dependencies": { "undici-types": "~8.9.0" } }, "sha512-ldVPDCzj7fsaGZrLB0NuHuTvJcsNasysBAqMolr/cgxrLd1xbqxIr3XJiPnHHJUCxj5sNF1vnRj9aWnrVh5Jcg=="],
+
+    "@types/polylabel": ["@types/polylabel@2.0.0", "", {}, "sha512-di+2+kta2AQu9/SPkDuPZi23sWucX9QpchPIv9ZgTU215piNWODbFeuFF7k6NtUlYVtz+d6QB9pMHohASuD9Mg=="],
 
     "@types/prismjs": ["@types/prismjs@1.26.6", "", {}, "sha512-vqlvI7qlMvcCBbVe0AKAb4f97//Hy0EBTaiW8AalRnG/xAN5zOiWWyrNqNXeq8+KAuvRewjCVY1+IPxk4RdNYw=="],
 
@@ -1361,6 +1365,8 @@
     "playwright-core": ["playwright-core@1.64.1", "", { "bin": { "playwright-core": "cli.js" } }, "sha512-BC4s8y6SEVA6Q1rSxZTto8hI1KUI3xXlHGZgvGqP4IqPdI/a6FX9H29IDNz7vKo9l21b6LfYosScPL6M3xxyDQ=="],
 
     "plist": ["plist@3.1.1", "", { "dependencies": { "@xmldom/xmldom": "^0.9.10", "base64-js": "^1.5.1", "xmlbuilder": "^15.1.1" } }, "sha512-ZIfcLJC+7E7FBFnDxm9MPmt7D+DidyQ26lewieO75AdhA2ayMtsJSES0iWzqJQbcVRSrTufQoy0DR94xHue0oA=="],
+
+    "polylabel": ["polylabel@2.1.0", "", { "dependencies": { "tinyqueue": "^3.0.0" } }, "sha512-ZCL9pc/BpnyBB1Es5Eh6baziBhZFS0fTlEXGarLMqbMYbAyawqGAjyo2+MfignMggSubmllMgRGcR0L0liOugg=="],
 
     "possible-typed-array-names": ["possible-typed-array-names@1.1.0", "", {}, "sha512-/+5VFTchJDoVj3bhoqi6UeymcD00DAwb1nJwamzPvHEszJ4FpF6SNNbUbOS8yI56qHzdV8eK0qEfOSiodkTdxg=="],
 

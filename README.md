@@ -160,10 +160,13 @@ editable `openspeleo_core` extension. Container dependencies and build caches
 use separate named volumes. The `.devcontainer` scripts implement runtime setup
 and ownership handling.
 
-The stack includes Django, PostgreSQL, Redis, GitLab, RustFS, Celery, and
-Kanchi. The setup service provisions local services and runs migrations before
-dependent services start. Django is available at `http://localhost:8000`, and
-Kanchi at `http://localhost:8765`.
+The stack includes Django, PostgreSQL, Redis, GitLab, RustFS, a Celery worker,
+and Celery Beat. The setup service provisions local services and runs migrations
+before dependent services start. Django is available at `http://localhost:8000`.
+Task execution history is available to authorized staff in Django admin;
+application jobs retain their own progress and controlled retry actions. See
+[background job operations](apps/web/docs/background-jobs-operations.md) for
+result retention, scheduler health, and retired local monitoring data cleanup.
 
 The default Compose project is `speleodb-monorepo`. Preserve existing containers
 and volumes. Use both a distinct Compose project and `COMPOSE_INSTANCE_PREFIX`

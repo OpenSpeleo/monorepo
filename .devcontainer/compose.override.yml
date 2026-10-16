@@ -195,10 +195,6 @@ services:
         /workspace/.devcontainer/sync-openspeleo-core.sh &&
         exec /start-celerybeat
 
-  kanchi:
-    container_name: "${COMPOSE_INSTANCE_PREFIX:-${COMPOSE_PROJECT_NAME}}-kanchi"
-    restart: unless-stopped
-
   celery-test-redis:
     container_name: >-
       ${COMPOSE_INSTANCE_PREFIX:-${COMPOSE_PROJECT_NAME}}-celery-test-redis

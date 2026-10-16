@@ -14,8 +14,7 @@
     "django",
     "django-webserver",
     "celery-worker",
-    "celery-beat",
-    "kanchi"
+    "celery-beat"
   ],
   "workspaceFolder": "/workspace",
   "shutdownAction": "stopCompose",
