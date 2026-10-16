@@ -166,12 +166,13 @@ Clone recursively with native Git. Initialize an existing clean checkout using
 Preserve intentional branches, dirty work, and gitlink differences; do not
 update those checkouts automatically.
 
-Root dependency installation uses `bun run install:local` and
+Root dependency installation uses `bun ci` and
 `uv sync --python 3.14 --all-extras --frozen`. Application build and test
 commands run directly in the owning child repository. There are no root Make
-wrappers, child check dispatchers, or custom tests. The root installation
-projection is the sole TypeScript dependency integration command. The
-`.devcontainer` scripts remain responsible for the container's runtime setup.
+wrappers, child check dispatchers, or custom tests. `bun run install:local`
+remains a compatibility entrypoint that migrates legacy dependency links and
+runs native `bun ci`. The `.devcontainer` scripts remain responsible for the
+container's runtime setup.
 
 ## Git workflow
 
@@ -241,12 +242,14 @@ documentation together. Never silently rename a path or discard its local data.
 
 ## JavaScript and WebNative rules
 
-The root manifest controls workspace discovery. The root installer separately
-projects a dependency graph containing only mobile and the TypeScript packages.
-Web retains an independent Bun installation; do not add it to the projected
-install graph. Root Compose selects `.devcontainer/install-web-packages.mjs`;
-its frozen integration lock preserves the standalone manifest while using live
-local sources.
+The root manifest controls workspace discovery. Native `bun ci` installs all
+JavaScript workspaces, including web, mobile, and the TypeScript packages, into
+one consistent dependency tree. Root overrides resolve shared packages to live
+local workspaces. Never publish host `node_modules` links to an external
+projected workspace: subsequent native installs can invalidate those links. Root
+Compose retains `.devcontainer/install-web-packages.mjs` for its separate Linux
+dependency volume; its frozen integration lock preserves the standalone manifest
+while using live local sources.
 
 Bun is the package manager and JavaScript runtime. Keep `.bun-version`,
 `packageManager`, and `engines.bun` aligned at the exact declared version in the
@@ -271,23 +274,32 @@ Maintain all relevant locks:
 - `.devcontainer/web-packages.lock` for the local web overlay.
 
 Standalone installs use `test -s bun.lock && bun install --frozen-lockfile`.
-Root installs use `bun run install:local`, which projects local manifests before
-resolution and guards the frozen root lock. Bun 1.4.2 fetches Git dependencies
-before applying root overrides, so raw root `bun install` is not the local
-development entrypoint. The root-owned `.devcontainer` installer is the narrow
-integration exception to the no-orchestration rule; do not add child test or
-build dispatchers. It keeps canonical child manifests untouched and publishes
-links to live sources after installation. Existing dependency directories are
-retained as ignored backups rather than deleted. For dependency changes, resolve
-the standalone child lock outside the enclosing workspace, then refresh the root
-integration lock. A child command must not silently validate the parent graph.
-The monorepo-only `bun run lock [--upgrade]` command in web, mobile and both map
-packages delegates to `utilities/bun-lock/lock.mjs`. It resolves just the
-calling package in external staging and writes only that child's lock. Upgrade
-mode refreshes the complete graph within unchanged manifest constraints. Keep
-this shared lock utility separate from installation and standalone CI. At the
-monorepo root the same command resolves only the top-level `bun.lock`, using
-`.devcontainer/typescript-projection.mjs` shared with the root installer. It
+Root installs use `bun ci` against the canonical workspace manifests and frozen
+root lock. The registry-based shared package specifications work with native
+workspace overrides; no host manifest projection is needed. The compatibility
+command `bun run install:local` preserves legacy external `node_modules` links
+and standalone package copies as ignored backups before running the same
+full-workspace install. It leaves old cache targets intact and never rewrites
+child manifests. Do not add child test or build dispatchers. For dependency
+changes, resolve the standalone child lock outside the enclosing workspace, then
+refresh the root integration lock. A child command must not silently validate
+the parent graph. The monorepo-only `bun run lock [--upgrade]` command in web,
+mobile and both map packages delegates to `utilities/bun-lock/lock.mjs`. It
+resolves just the calling package in external staging and writes only that
+child's lock. Upgrade mode refreshes the complete graph within unchanged
+manifest constraints. The shared lock utility resolves locks only; it must not
+install dependencies or dispatch child checks. At the monorepo root the same
+command resolves only the top-level `bun.lock`, using
+`.devcontainer/typescript-projection.mjs` to snapshot workspace manifests and
+rewrite shared map dependency specifications only in temporary copies to
+`workspace:*`. Root lock declarations and package resolutions must remain local;
+standalone app manifests and locks retain exact npm versions. Root `postinstall`
+invokes the same writer after native installs, including installs launched from
+child directories. Do not freeze native installs to prevent serialization churn.
+Raw `bun install --lockfile-only` and `--ignore-scripts` bypass lifecycle
+normalization; use `bun run lock` for canonical root lock-only updates, or run
+it after a deliberate bypass. The `install:local --refresh-lock` wrapper invokes
+the canonical writer explicitly, even with `--ignore-scripts`. The writer
 includes web, mobile, and TypeScript packages, and leaves child locks, installed
 dependencies, and the web overlay lock untouched. Mobile's lock hook uses its
 isolated standalone lock checker. Review approved `trustedDependencies` when
@@ -308,14 +320,14 @@ slash in `packages/typescript/*/` so the reserved README is not misidentified as
 another application. Do not add a second WebNative-specific project registry
 unless required by an upstream change.
 
-Run `bun run install:local` on the host for normal mobile/library development.
-Never run it against `/workspace` in the web devcontainer: those dependency
-directories are host bind mounts, unlike web's named dependency volume.
-Container validation uses an isolated source snapshot under `/tmp` with its own
-Linux dependencies, then runs the owning child commands:
+Run `bun ci` on the host for normal web/mobile/library development. Never run it
+against `/workspace` in the web devcontainer: those dependency directories are
+host bind mounts, unlike web's named dependency volume. Container validation
+uses an isolated source snapshot under `/tmp` with its own Linux dependencies,
+then runs the owning child commands:
 
 ```bash
-bun run install:local
+bun ci
 cd apps/mobile
 bun run lint
 bun run test:ci
@@ -651,8 +663,7 @@ editor-specific port forwarding for that response.
 `.github/workflows/ci.yml` runs on pull requests and pushes to `master`:
 
 1. Root `prek run -a`.
-2. `uv lock --check` and `bun run install:local --ignore-scripts`, running in
-   parallel after prek.
+2. `uv lock --check` and `bun ci`, running in parallel after prek.
 3. Build the devcontainer images after both lock checks pass.
 
 Cache prek environments, uv and Bun downloads, and Docker layers. Use the
@@ -727,13 +738,14 @@ versions and matching core overrides; viewer accepts core `>=0.1.0 <1.0.0`. Keep
 standalone registry locks separate from the live local source projections.
 Publishing still requires explicit user authorization.
 
-The root and web Bun manifest projections own local source resolution. Both apps
-and viewer-to-core must resolve locally before any shared dependency fetch. Both
-local and standalone builds consume TypeScript source exports, including source
-type exports. Applications compile package code in their normal Vite build; Bun
-executes it directly. `dist/` is ignored and excluded from both map packages.
-Their explicit `build` scripts smoke-test browser compilation; there are no
-dependency installation build hooks or committed-artifact checks. Applications
-retain `speleodb-source` only as compatibility with older Git pins that already
-ship source. Local-package flags validate workspace links, never select compiled
-artifacts. See `packages/typescript/README.md` for distribution and ownership.
+Root Bun workspace overrides and the container's web manifest projection own
+local source resolution. Both apps and viewer-to-core must resolve locally
+before any shared dependency fetch. Both local and standalone builds consume
+TypeScript source exports, including source type exports. Applications compile
+package code in their normal Vite build; Bun executes it directly. `dist/` is
+ignored and excluded from both map packages. Their explicit `build` scripts
+smoke-test browser compilation; there are no dependency installation build hooks
+or committed-artifact checks. Applications retain `speleodb-source` only as
+compatibility with older Git pins that already ship source. Local-package flags
+validate workspace links, never select compiled artifacts. See
+`packages/typescript/README.md` for distribution and ownership.

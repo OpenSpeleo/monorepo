@@ -1,94 +1,72 @@
-import { createHash } from 'node:crypto';
-import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, readlinkSync, realpathSync, renameSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
-import { homedir } from 'node:os';
+import { existsSync, lstatSync, mkdirSync, readFileSync, realpathSync, renameSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { projectTypeScriptWorkspace } from './typescript-projection.mjs';
 
-// Bun resolves Git protocols before overrides. Project local workspace metadata
-// before invoking the installer so no shared Git dependency can be fetched.
+// Keep the compatibility entrypoint, but install the full native Bun workspace.
+// A second dependency tree outside the checkout breaks relative package links
+// when developers subsequently run `bun ci` at the root.
 const workspace = realpathSync(resolve(dirname(fileURLToPath(import.meta.url)), '..'));
 if (workspace === '/workspace' && existsSync('/.dockerenv')) {
-    throw new Error('Run bun run install:local on the host. The web devcontainer bind-mounts host mobile/package node_modules; use an isolated container snapshot for verification and the web-specific installer for /app.');
+    throw new Error('Run bun ci on the host. The web devcontainer bind-mounts host mobile/package node_modules; use an isolated container snapshot for verification and the web-specific installer for /app.');
 }
-const key = createHash('sha256').update(workspace).digest('hex').slice(0, 16);
-const installation = process.env.SPELEODB_TYPESCRIPT_INSTALL_ROOT
-    ?? join(process.env.XDG_CACHE_HOME ?? join(homedir(), '.cache'), 'speleodb', `typescript-${process.platform}-${process.arch}-${key}`);
-const refresh = process.argv.includes('--refresh-lock');
-const ignoreScripts = process.argv.includes('--ignore-scripts');
+const args = process.argv.slice(2);
+if (args.some(arg => !['--refresh-lock', '--ignore-scripts', '--install-locked'].includes(arg))) {
+    throw new Error('Usage: bun run install:local [--refresh-lock] [--ignore-scripts]');
+}
+const refresh = args.includes('--refresh-lock');
+const ignoreScripts = args.includes('--ignore-scripts');
 const lockPath = join(workspace, 'bun.lock');
 const installationLock = join(workspace, '.cache/typescript-install.lock');
 mkdirSync(dirname(installationLock), { recursive: true });
-if (!process.argv.includes('--install-locked')) {
-    // Python's OS advisory lock is available on both supported developer hosts
-    // (macOS/Linux) and is released even when an installer process fails.
+if (!args.includes('--install-locked')) {
     const locking = 'import fcntl, subprocess, sys\nwith open(sys.argv[1], "a") as lock:\n fcntl.flock(lock.fileno(), fcntl.LOCK_EX)\n sys.exit(subprocess.call(sys.argv[2:]))\n';
     const result = Bun.spawnSync(['python3', '-c', locking, installationLock,
-        process.execPath, fileURLToPath(import.meta.url), ...process.argv.slice(2), '--install-locked'], {
+        process.execPath, fileURLToPath(import.meta.url), ...args, '--install-locked'], {
         stdout: 'inherit', stderr: 'inherit',
     });
     process.exit(result.exitCode);
 }
 
-mkdirSync(installation, { recursive: true });
-
-function writeChanged(path, content) {
-    if (existsSync(path) && readFileSync(path, 'utf8') === content) return;
-    const temporary = `${path}.${process.pid}.tmp`;
-    writeFileSync(temporary, content);
-    renameSync(temporary, path);
-}
-
-function link(path, target) {
-    const previous = lstatSync(path, { throwIfNoEntry: false });
-    if (previous?.isSymbolicLink() && readlinkSync(path) === target) return;
-    if (previous && !previous.isSymbolicLink()) throw new Error(`Expected a symlink at ${path}; refusing to overwrite files.`);
-    const temporary = `${path}.${process.pid}.tmp`;
-    rmSync(temporary, { force: true });
-    symlinkSync(target, temporary);
-    renameSync(temporary, path);
-}
-
-const { manifest, projections, workspacePaths } = projectTypeScriptWorkspace(workspace);
 if (!refresh && (!existsSync(lockPath) || !readFileSync(lockPath, 'utf8').trim())) {
-    throw new Error('The monorepo TypeScript lock is missing. Run bun run install:local --refresh-lock and review bun.lock.');
+    throw new Error('The monorepo Bun lock is missing. Run bun run lock and review bun.lock.');
 }
-// Bun validates the projected dependency graph against the frozen lock below.
-writeChanged(join(installation, 'package.json'), `${JSON.stringify(manifest, null, 2)}\n`);
-writeChanged(join(installation, 'bunfig.toml'), readFileSync(join(workspace, 'bunfig.toml'), 'utf8'));
-for (const projection of projections) {
-    const target = join(installation, projection.relative);
-    mkdirSync(target, { recursive: true });
-    writeChanged(join(target, 'package.json'), `${JSON.stringify(projection.projected, null, 2)}\n`);
-    for (const entry of readdirSync(projection.directory)) {
-        if (['.git', 'node_modules', 'dist', 'package.json', 'bun.lock', '.speleodb-unreleased'].includes(entry)) continue;
-        link(join(target, entry), join(projection.directory, entry));
-    }
+const { manifest, projections } = projectTypeScriptWorkspace(workspace);
+const localPackages = new Map(projections.map(({ directory, projected }) => [projected.name, directory]));
+const backupRoot = join(workspace, '.cache/speleodb-node-modules-backups', `${Date.now()}-${process.pid}`);
+function preserve(destination, relative) {
+    const backup = join(backupRoot, relative);
+    mkdirSync(dirname(backup), { recursive: true });
+    renameSync(destination, backup);
+    console.log(`Preserved previous dependency installation: ${backup}`);
 }
-if (existsSync(lockPath)) writeChanged(join(installation, 'bun.lock'), readFileSync(lockPath, 'utf8'));
-const install = (...args) => {
-    const result = Bun.spawnSync([process.execPath, 'install', '--linker=isolated', ...args,
-        ...(ignoreScripts ? ['--ignore-scripts'] : [])], { cwd: installation, stdout: 'inherit', stderr: 'inherit' });
-    if (result.exitCode !== 0) process.exit(result.exitCode);
-};
-if (refresh) install('--lockfile-only', '--ignore-scripts');
-install('--frozen-lockfile');
-for (const relative of ['', ...workspacePaths]) {
-    const target = join(installation, relative, 'node_modules');
-    mkdirSync(target, { recursive: true });
+for (const { relative, projected } of [{ relative: '', projected: manifest }, ...projections]) {
     const destination = join(workspace, relative, 'node_modules');
     const previous = lstatSync(destination, { throwIfNoEntry: false });
-    if (previous && !previous.isSymbolicLink()) {
-        // Preserve an earlier native install on the same filesystem. A failed
-        // rename leaves it intact; nothing in this installer deletes the backup.
-        const backup = join(workspace, '.cache/speleodb-node-modules-backups', `${Date.now()}-${process.pid}`, relative || 'root');
-        mkdirSync(dirname(backup), { recursive: true });
-        renameSync(destination, backup);
-        console.log(`Preserved previous dependency directory: ${backup}`);
+    if (!previous) continue;
+    if (previous.isSymbolicLink()) {
+        preserve(destination, relative || 'root');
+        continue;
     }
-    link(destination, target);
+    const dependencies = { ...projected.dependencies, ...projected.devDependencies, ...projected.optionalDependencies };
+    for (const name of Object.keys(dependencies)) {
+        if (!localPackages.has(name)) continue;
+        const installed = join(destination, name);
+        if (!lstatSync(installed, { throwIfNoEntry: false })) continue;
+        if (existsSync(installed) && realpathSync(installed) === realpathSync(localPackages.get(name))) continue;
+        // Bun can retain a registry copy when its version already matches.
+        // Preserve only that package, leaving the dependency directory intact.
+        preserve(installed, join(relative || 'root', name));
+    }
 }
-if (refresh) {
-    writeChanged(lockPath, readFileSync(join(installation, 'bun.lock'), 'utf8'));
-}
-console.log('SpeleoDB live local TypeScript workspace installed before shared Git resolution.');
+const install = (...installArgs) => {
+    const result = Bun.spawnSync([process.execPath, ...installArgs], {
+        cwd: workspace, stdout: 'inherit', stderr: 'inherit',
+    });
+    if (result.exitCode !== 0) process.exit(result.exitCode);
+};
+// Native lockfile-only installs serialize the standalone version declarations.
+// Use the same root lock writer as postinstall, even when scripts are disabled.
+if (refresh) install('run', 'lock');
+install('ci', ...(ignoreScripts ? ['--ignore-scripts'] : []));
+console.log('Installed all Bun workspaces: web, mobile, and TypeScript packages. Future installs can use bun ci.');

@@ -71,23 +71,25 @@ Use Bun from `.bun-version`, Python 3.14, and uv 0.12.17 or newer. Install the
 shared dependency environments on the host when needed:
 
 ```bash
-bun run install:local
+bun ci
 uv sync --python 3.14 --all-extras --frozen
 ```
 
-The root manifest controls workspace discovery. The installer separately
-projects a dependency workspace containing only mobile and the TypeScript
-packages. Web retains its standalone Bun installation; the devcontainer supplies
-live local map packages through an automatic root-owned installation overlay.
-Keep Bun's isolated linker so mobile dependencies remain app-local. The
-installer rewrites shared dependencies to local workspaces before resolution
-because Bun attempts Git fetches before applying overrides. Standalone manifests
-stay unchanged. Container validation uses an isolated source snapshot; never
-install Linux mobile/package modules into the host bind mount. The root Python
-project uses editable library sources and a virtual web dependency; it is not a
-uv workspace. Child locks remain independent. Bun also runs JavaScript builds,
-tools and Vitest; no separate Node installation is required. Each `bunfig.toml`
-keeps `[run] bun = true` to apply that runtime to child executables.
+The root manifest controls workspace discovery. `bun ci` installs every declared
+JavaScript workspace: mobile, web, and the TypeScript packages. Root overrides
+resolve shared map packages directly to their local checkouts. Keep Bun's
+isolated linker so each application resolves its declared dependency versions.
+For checkouts using the former external dependency cache, run
+`bun run install:local` once: it preserves old dependency links and standalone
+package copies as ignored backups and runs the same native `bun ci`. Subsequent
+installs use `bun ci`. Standalone manifests stay unchanged. The web devcontainer
+retains its separate Linux dependency volume and automatic local-source overlay.
+Container validation uses an isolated source snapshot; never install Linux
+mobile/package modules into the host bind mount. The root Python project uses
+editable library sources and a virtual web dependency; it is not a uv workspace.
+Child locks remain independent. Bun also runs JavaScript builds, tools and
+Vitest; no separate Node installation is required. Each `bunfig.toml` keeps
+`[run] bun = true` to apply that runtime to child executables.
 
 To resolve a child standalone Bun lock without touching the parent lock, run
 `bun run lock` from `apps/web`, `apps/mobile`, `packages/typescript/map-core`,
@@ -98,11 +100,22 @@ packages or change manifests. This convenience command requires the monorepo.
 
 From the monorepo root, the same `bun run lock [--upgrade]` command updates only
 the top-level `bun.lock`, including web, mobile, and TypeScript packages with
-local map dependencies. It shares dependency projection rules with
-`install:local`, which installs only mobile and the TypeScript packages; web
-retains its separate installation. Child locks and
-`.devcontainer/web-packages.lock` remain separate. Run `bun run install:local`
-afterward when installed dependencies need updating.
+local map dependencies. Its temporary manifests use `workspace:*` for shared map
+dependencies, so the root lock consistently records workspace references.
+Canonical app manifests and standalone app locks retain exact npm versions. Root
+`postinstall` runs this same lock writer after native `bun install`, including
+installs launched from an app directory; it does not freeze installs or change
+their dependency layout. Child locks and `.devcontainer/web-packages.lock`
+remain separate. Run `bun ci` afterward when installed dependencies need
+updating.
+
+Use `bun run lock` to update only the root lock. Raw
+`bun install --lockfile-only` skips lifecycle scripts and writes the version
+specifications from the child manifests; `--ignore-scripts` also bypasses the
+root normalizer. Those bypasses are not canonical root lock-writing commands.
+Run `bun run lock` afterward if either was used. The
+`bun run install:local --refresh-lock` wrapper calls the canonical writer
+explicitly, including when invoked with `--ignore-scripts`.
 
 Copy application `.env.dist` templates only when their local files are missing.
 Preserve existing environment files. Follow each child's README and `AGENTS.md`
@@ -162,7 +175,7 @@ configuration issue.
 The workflow runs on pull requests and pushes to `master`, in this order:
 
 1. `prek run -a` using the root configuration.
-2. In parallel: `uv lock --check` and `bun run install:local --ignore-scripts`.
+2. In parallel: `uv lock --check` and `bun ci`.
 3. Build the devcontainer's Django image from the merged Compose configuration.
    Webserver, worker, scheduler, and setup services share the Django Dockerfile
    and build arguments. PostgreSQL uses a prebuilt image.

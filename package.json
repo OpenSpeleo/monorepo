@@ -23,6 +23,7 @@
   ],
   "scripts": {
     "lock": "bun utilities/bun-lock/lock.mjs",
-    "install:local": "bun .devcontainer/install-typescript-packages.mjs"
+    "install:local": "bun .devcontainer/install-typescript-packages.mjs",
+    "postinstall": "bun run lock"
   }
 }

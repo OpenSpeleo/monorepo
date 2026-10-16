@@ -42,7 +42,7 @@ function checkSpecs(value, localNames = new Set()) {
         }
     }
 }
-const graph = integration ? projectTypeScriptWorkspace(root, { includeWeb: true, read: path => {
+const graph = integration ? projectTypeScriptWorkspace(root, { read: path => {
     const name = relative(root, path);
     if (!inputs.has(name)) inputs.set(name, readFileSync(path));
     return inputs.get(name).toString();
@@ -93,8 +93,26 @@ try {
         // A fresh solve unlocks transitives as well as direct dependencies while
         // keeping exact versions, ranges, overrides and Git SHAs authoritative.
         if (content !== null && !(upgrade && name === 'bun.lock')) {
+            let staged = stagedManifests.get(name) ?? content;
+            if (integration && name === 'bun.lock') {
+                // Bun can reuse a member's old dependency declarations when
+                // the overridden resolution is unchanged. Normalize the input
+                // metadata too, retaining every existing package resolution.
+                const lock = Bun.JSONC.parse(content.toString());
+                for (const { relative, projected } of graph.projections) {
+                    for (const field of ['dependencies', 'devDependencies', 'optionalDependencies']) {
+                        for (const [dependency, spec] of Object.entries(projected[field] ?? {})) {
+                            if (spec === 'workspace:*' && lock.workspaces?.[relative]?.[field]?.[dependency] !== undefined) {
+                                lock.workspaces[relative][field][dependency] = spec;
+                            }
+                        }
+                    }
+                }
+                // Bun writes its own canonical text formatting after resolving.
+                staged = Buffer.from(`${JSON.stringify(lock)}\n`);
+            }
             mkdirSync(dirname(join(staging, name)), { recursive: true });
-            writeFileSync(join(staging, name), stagedManifests.get(name) ?? content, { mode: 0o600 });
+            writeFileSync(join(staging, name), staged, { mode: 0o600 });
         }
     }
     const result = spawnSync(process.execPath, [
@@ -112,12 +130,30 @@ try {
         if (JSON.stringify(Object.keys(parsed.workspaces ?? {}).sort()) !== JSON.stringify(expected)) {
             throw new Error('Bun generated a lockfile for an unexpected workspace graph.');
         }
+        for (const [path, content] of stagedManifests) {
+            const member = JSON.parse(content.toString());
+            const workspacePath = path === 'package.json' ? '' : dirname(path);
+            for (const field of ['dependencies', 'devDependencies', 'optionalDependencies']) {
+                for (const name of ['@speleodb/map-core', '@speleodb/map-viewer']) {
+                    const spec = member[field]?.[name];
+                    if (spec === undefined) continue;
+                    if (parsed.workspaces[workspacePath]?.[field]?.[name] !== spec) {
+                        throw new Error(`Bun changed the ${name} declaration in ${workspacePath || 'the standalone lock'}.`);
+                    }
+                    const resolution = parsed.packages?.[name]?.[0];
+                    const local = graph.projections.find(({ projected }) => projected.name === name);
+                    if (typeof resolution !== 'string' || (integration ? resolution !== `${name}@workspace:${local?.relative}` : resolution.includes('@workspace:'))) {
+                        throw new Error(`Unexpected ${name} resolution in ${integration ? 'the workspace' : 'a standalone'} lock.`);
+                    }
+                }
+            }
+        }
         for (const [name, content] of stagedManifests) {
             if (!readFileSync(join(staging, name)).equals(content)) {
                 throw new Error('Bun changed a staged manifest; refusing to publish its lock.');
             }
         }
-        if (integration && JSON.stringify(projectTypeScriptWorkspace(root, { includeWeb: true }).workspacePaths) !== JSON.stringify(graph.workspacePaths)) {
+        if (integration && JSON.stringify(projectTypeScriptWorkspace(root).workspacePaths) !== JSON.stringify(graph.workspacePaths)) {
             throw new Error('Workspace membership changed during resolution; rerun bun run lock.');
         }
         // Do not overwrite edits made while the resolver was running.

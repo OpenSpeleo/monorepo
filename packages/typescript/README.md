@@ -49,19 +49,21 @@ preserving overlays on basemap switches remain app-owned acceptance criteria.
 
 ## Local development
 
-Run `bun run install:local` at the monorepo root on the host for mobile and
-library development. Python 3 is required for the macOS/Linux installation lock.
-Container checks use an isolated source snapshot; the installer rejects the web
-devcontainer's `/workspace` bind mount to protect host-native dependencies. The
-root-owned installer projects manifests into an external cache, replacing every
-shared dependency with `workspace:*` before Bun resolves the graph. Bun 1.4.2
-attempts Git fetches before applying native overrides; the projection is
-necessary to guarantee local development never fetches a shared package
-revision. Canonical app and package manifests stay unchanged. The frozen root
-lock governs third-party dependencies; Bun's isolated linker retains app-local
-dependency links. Source and assets stay live through links, and existing
-dependency directories are retained as ignored backups when publishing the new
-installation. There is no remote fallback for a missing local checkout.
+Run `bun ci` at the monorepo root on the host to install every JavaScript
+workspace, including web, mobile, and both map packages. The root manifest's
+workspace overrides resolve shared packages to their local checkouts, while
+Bun's isolated linker preserves each application's dependency versions. The
+canonical app and package manifests stay unchanged, and the frozen root lock
+governs third-party dependencies. Source and assets remain live through native
+workspace links. There is no remote fallback for a missing local checkout.
+
+Existing checkouts with external dependency-cache links should run
+`bun run install:local` once. It preserves those links and standalone package
+copies as ignored backups, leaves their cache targets intact, and runs native
+`bun ci` for the full workspace. Python 3 provides the migration lock on
+macOS/Linux. Subsequent installs use `bun ci`; do not mix host and container
+dependency trees. Container checks use an isolated source snapshot, never the
+web devcontainer's `/workspace` host bind mount.
 
 The web application retains its independent Bun environment at `/app`. Root
 Compose selects the automatic `.devcontainer/install-web-packages.mjs` overlay.
@@ -96,9 +98,9 @@ docker exec -u dev-user -w /app speleodb-monorepo-django \
 
 Normal startup uses the frozen lock and rejects stale manifest inputs. Package
 source edits do not change that lock. The overlay never modifies canonical web
-manifests or locks. Refresh the root projection lock with
-`bun run install:local --refresh-lock`; child standalone locks are resolved in
-isolation from the parent workspace.
+manifests or locks. Refresh the root workspace lock with `bun run lock`, then
+install with `bun ci`; child standalone locks are resolved in isolation from the
+parent workspace.
 
 Bun is pinned by `.bun-version` and runs package scripts and their executable
 children through `[run] bun = true`. Retain Vitest (`bun run test`) instead of

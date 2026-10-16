@@ -1,37 +1,38 @@
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-// Share local dependency rewriting between lock resolution and installation.
-// The root lock includes web; the host installer leaves web installation separate.
+// Resolve root locks with explicit local references in temporary manifests.
+// Native installs still use the canonical manifests and their standalone pins.
 export function projectTypeScriptWorkspace(workspace, {
-    includeWeb = false,
     read = path => readFileSync(path, 'utf8'),
 } = {}) {
+    const manifest = JSON.parse(read(join(workspace, 'package.json')));
     const packageNames = ['map-core', 'map-viewer'];
-    const workspacePaths = ['apps/mobile', ...(includeWeb ? ['apps/web'] : []), ...readdirSync(join(workspace, 'packages/typescript'), { withFileTypes: true })
-        .filter(entry => entry.isDirectory() && existsSync(join(workspace, 'packages/typescript', entry.name, 'package.json')))
-        .map(entry => `packages/typescript/${entry.name}`)].sort();
+    const workspacePaths = [...new Set(manifest.workspaces.flatMap(pattern =>
+        [...new Bun.Glob(pattern).scanSync({ cwd: workspace, onlyFiles: false })]
+            .filter(relative => existsSync(join(workspace, relative, 'package.json'))),
+    ))].sort();
     for (const name of packageNames) {
+        if (manifest.overrides?.[`@speleodb/${name}`] !== 'workspace:*') {
+            throw new Error(`The root override for @speleodb/${name} must be workspace:*.`);
+        }
         const source = join(workspace, 'packages/typescript', name);
         if (!existsSync(join(source, 'src/index.ts'))) {
             throw new Error(`Local ${name} source is missing: ${source}. No remote fallback is permitted.`);
         }
     }
-    const canonical = JSON.parse(read(join(workspace, 'package.json')));
-    const manifest = { ...canonical, workspaces: workspacePaths };
     const projections = workspacePaths.map(relative => {
         const directory = join(workspace, relative);
-        const original = JSON.parse(read(join(directory, 'package.json')));
-        const projected = structuredClone(original);
-        for (const group of ['dependencies', 'devDependencies', 'optionalDependencies']) {
+        const projected = JSON.parse(read(join(directory, 'package.json')));
+        for (const field of ['dependencies', 'devDependencies', 'optionalDependencies']) {
             for (const name of packageNames) {
-                if (projected[group]?.[`@speleodb/${name}`]) projected[group][`@speleodb/${name}`] = 'workspace:*';
+                const dependency = `@speleodb/${name}`;
+                if (projected[field]?.[dependency]) projected[field][dependency] = 'workspace:*';
             }
         }
-        // Child overrides belong to standalone installs. Only the root overlay's
-        // overrides apply to this graph, including viewer-to-core peer resolution.
+        // Standalone overrides must not reintroduce registry pins into this
+        // temporary graph; the monorepo's root overrides are authoritative.
         delete projected.overrides;
-        projected.speleodbLocalSources = true;
         return { relative, directory, projected };
     });
     return { manifest, projections, workspacePaths };
