@@ -44,7 +44,7 @@ repos:
   # Markdown formatting
   # -------------------------
   - repo: https://github.com/rbubley/mirrors-prettier
-    rev: v3.9.9
+    rev: v3.9.10
     hooks:
       - id: prettier
         name: prettier markdown
@@ -87,3 +87,23 @@ repos:
           - DL3007  # Allow `latest` Docker image tags.
           - --ignore
           - DL3008  # Allow APT packages without explicit version pins.
+
+  # ========================================================================= #
+  #                           DEPENDENCY MANAGEMENT                           #
+  # ========================================================================= #
+
+  - repo: https://github.com/astral-sh/uv-pre-commit
+    # uv version.
+    rev: 0.13.1
+    hooks:
+      - id: uv-lock
+        args: ["--check"]
+
+  - repo: local
+    hooks:
+      - id: bun-lock-check
+        name: Check Bun Lockfile
+        entry: bun install --frozen-lockfile --dry-run
+        language: system
+        files: ^(package\.json|bun\.lockb?)$
+        pass_filenames: false
