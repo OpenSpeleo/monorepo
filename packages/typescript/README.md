@@ -64,12 +64,12 @@ separately prove that the schema matches endpoint behavior.
 ## Package distribution
 
 `@speleodb/api` follows the same live-source workspace and container projection
-as the map packages below. Standalone apps pin `0.1.0`; the root override
-resolves its local checkout. API publication is a separate release gate: before
-the first registry release, validate local source integration and an isolated
-package archive, and do not fabricate registry lock entries. Once publication is
-explicitly authorized, resolve the app standalone locks against that exact
-registry release and verify frozen installs.
+as the map packages below. Standalone apps pin an exact npm release; the root
+override resolves its local checkout. API publication is a separate release
+gate: before the first registry release, validate local source integration and
+an isolated package archive, and do not fabricate registry lock entries. Once
+publication is explicitly authorized, resolve the app standalone locks against
+that exact registry release and verify frozen installs.
 
 `map-core` owns shared map algorithms; `map-viewer` owns MapLibre specifications
 and assets. Each is a registered Git submodule with a public upstream
