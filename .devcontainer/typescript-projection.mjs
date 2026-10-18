@@ -7,7 +7,7 @@ export function projectTypeScriptWorkspace(workspace, {
     read = path => readFileSync(path, 'utf8'),
 } = {}) {
     const manifest = JSON.parse(read(join(workspace, 'package.json')));
-    const packageNames = ['map-core', 'map-viewer'];
+    const packageNames = ['api', 'map-core', 'map-viewer'];
     const workspacePaths = [...new Set(manifest.workspaces.flatMap(pattern =>
         [...new Bun.Glob(pattern).scanSync({ cwd: workspace, onlyFiles: false })]
             .filter(relative => existsSync(join(workspace, relative, 'package.json'))),

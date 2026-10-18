@@ -47,6 +47,11 @@
 	url = https://github.com/zheylmun/compass_data.git
 	branch = main
 
+[submodule "packages/typescript/api"]
+	path = packages/typescript/api
+	url = ../SpeleoDB-TS-API.git
+	branch = master
+
 [submodule "packages/typescript/map-core"]
 	path = packages/typescript/map-core
 	url = ../SpeleoDB-TS-MapCore.git

@@ -134,7 +134,7 @@ try {
             const member = JSON.parse(content.toString());
             const workspacePath = path === 'package.json' ? '' : dirname(path);
             for (const field of ['dependencies', 'devDependencies', 'optionalDependencies']) {
-                for (const name of ['@speleodb/map-core', '@speleodb/map-viewer']) {
+                for (const name of ['@speleodb/api', '@speleodb/map-core', '@speleodb/map-viewer']) {
                     const spec = member[field]?.[name];
                     if (spec === undefined) continue;
                     if (parsed.workspaces[workspacePath]?.[field]?.[name] !== spec) {

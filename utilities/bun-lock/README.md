@@ -1,6 +1,6 @@
 # Isolated Bun lock resolution
 
-From the monorepo root, `apps/web`, `apps/mobile`,
+From the monorepo root, `apps/web`, `apps/mobile`, `packages/typescript/api`,
 `packages/typescript/map-core`, or `packages/typescript/map-viewer` inside this
 monorepo:
 
@@ -13,18 +13,18 @@ bun run lock --help
 One shared utility resolves the calling package's graph outside the enclosing
 Bun workspace and installed tree. From a child it resolves that package's
 standalone graph. From the monorepo root it resolves the integration graph: web,
-mobile, and TypeScript packages, with local map dependencies. The root command
-uses `.devcontainer/typescript-projection.mjs` to snapshot workspace manifests
-and set shared map dependencies to `workspace:*` only in the temporary copies.
-Standalone overrides are removed from those copies so root overrides remain
-authoritative. The root lock records workspace declarations and resolutions;
-standalone app locks record their exact npm versions. Generated declarations and
-resolutions are checked before publication. The temporary input lock receives
-the same declaration normalization because Bun can retain old member metadata
-when an overridden resolution is unchanged. Its package resolutions are
-preserved. Canonical manifests remain unchanged. The lock and native `bun ci`
-installation cover the same entire root workspace, including web. Ordinary
-locking retains existing satisfied resolutions. `--upgrade`, like
+mobile, and TypeScript packages, with local API and map dependencies. The root
+command uses `.devcontainer/typescript-projection.mjs` to snapshot workspace
+manifests and set shared package dependencies to `workspace:*` only in the
+temporary copies. Standalone overrides are removed from those copies so root
+overrides remain authoritative. The root lock records workspace declarations and
+resolutions; standalone app locks record their exact npm versions. Generated
+declarations and resolutions are checked before publication. The temporary input
+lock receives the same declaration normalization because Bun can retain old
+member metadata when an overridden resolution is unchanged. Its package
+resolutions are preserved. Canonical manifests remain unchanged. The lock and
+native `bun ci` installation cover the same entire root workspace, including
+web. Ordinary locking retains existing satisfied resolutions. `--upgrade`, like
 `uv lock --upgrade`, starts a fresh resolution of direct and transitive
 dependencies within the unchanged manifest constraints. Exact versions, semver
 bounds, overrides, and pinned Git SHAs still apply. Upgrade mode ignores cached
@@ -76,7 +76,7 @@ version metadata or alter third-party resolutions.
 ## Scope
 
 This is a monorepo convenience utility, not an upstream package dependency or a
-replacement for each repository's independent lock check. All four children have
+replacement for each repository's independent lock check. All five children have
 small launchers without extra dependencies or CI changes. The web launcher also
 supports its `/app` container mount, using the helper under `/workspace`. When
 the helper is missing, every launcher exits with a clear message and status 1
@@ -102,12 +102,12 @@ locking retains satisfied versions while upgrade mode refreshes both direct and
 transitive versions without crossing manifest bounds or changing manifests. Also
 exercise missing locks, configuration forwarding, invalid arguments, runtime
 mismatch, unsafe temporary roots, and edits during resolution. Exercise the root
-and four child package-script entrypoints separately. Root fixtures must prove
-web is included, map dependencies resolve locally, child locks and installed
-trees are untouched, and the result passes native `bun ci` against the same
-canonical manifests. Repeat root and app native installs, root lock-only and
-refresh commands, and child standalone lock commands; assert byte-stable root
-locks after normalization, unchanged child locks/manifests, and unchanged
+and five child package-script entrypoints separately. Root fixtures must prove
+web is included, API and map dependencies resolve locally, child locks and
+installed trees are untouched, and the result passes native `bun ci` against the
+same canonical manifests. Repeat root and app native installs, root lock-only
+and refresh commands, and child standalone lock commands; assert byte-stable
+root locks after normalization, unchanged child locks/manifests, and unchanged
 third-party resolutions. Web launcher tests belong to the web frontend suite and
 run in its existing container.
 

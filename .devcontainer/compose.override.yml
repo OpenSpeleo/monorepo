@@ -29,7 +29,7 @@ x-monorepo-python-environment: &monorepo_python_environment
   CARGO_HOME: /monorepo-python-build-cache/cargo
   CARGO_TARGET_DIR: /monorepo-python-build-cache/openspeleo-core-target
   # Each submodule is a separate repository with its own ownership check.
-  GIT_CONFIG_COUNT: "16"
+  GIT_CONFIG_COUNT: "17"
   GIT_CONFIG_KEY_0: safe.directory
   GIT_CONFIG_VALUE_0: /workspace
   GIT_CONFIG_KEY_1: safe.directory
@@ -63,6 +63,8 @@ x-monorepo-python-environment: &monorepo_python_environment
   GIT_CONFIG_VALUE_14: /workspace/packages/typescript/map-core
   GIT_CONFIG_KEY_15: safe.directory
   GIT_CONFIG_VALUE_15: /workspace/packages/typescript/map-viewer
+  GIT_CONFIG_KEY_16: safe.directory
+  GIT_CONFIG_VALUE_16: /workspace/packages/typescript/api
   # Shells start in /workspace; the shared entrypoint imports compose from /app.
   PYTHONPATH: "/workspace/packages/python/openspeleo_core/src_python:\
     /workspace/packages/python/mnemo_lib:\

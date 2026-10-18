@@ -12,9 +12,10 @@
     "bun": "1.4.2"
   },
   "overrides": {
+    "@speleodb/api": "workspace:*",
     "@speleodb/map-core": "workspace:*",
     "@speleodb/map-viewer": "workspace:*",
-    "maplibre-gl": "github:DEKHTIARJonathan/maplibre-gl-js#hotpatch"
+    "maplibre-gl": "https://github.com/DEKHTIARJonathan/maplibre-gl-js/archive/0566606682dc786d56e37214199901407fa51d89.tar.gz"
   },
   "packageManager": "bun@1.4.2",
   "trustedDependencies": [

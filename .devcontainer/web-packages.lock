@@ -5,6 +5,7 @@
     "": {
       "name": "speleodb",
       "dependencies": {
+        "@speleodb/api": "workspace:*",
         "@speleodb/map-core": "workspace:*",
         "@speleodb/map-viewer": "workspace:*",
         "maplibre-gl": "github:DEKHTIARJonathan/maplibre-gl-js#hotpatch",
@@ -34,6 +35,10 @@
         "vite": "8.3.4",
         "vitest": "5.0.4",
       },
+    },
+    "packages/api": {
+      "name": "@speleodb/api",
+      "version": "0.1.0",
     },
     "packages/map-core": {
       "name": "@speleodb/map-core",
@@ -182,6 +187,8 @@
     "@rolldown/binding-win32-x64-msvc": ["@rolldown/binding-win32-x64-msvc@1.2.14", "", { "os": "win32", "cpu": "x64" }, "sha512-9mE94bf2GZUaR/fUSXCMpBoWkctu421Mi0ORpm4zqfbkjKep7RxzPFa5etcGs5h+2KApoWBOA/hAJa/7saGgEQ=="],
 
     "@rolldown/pluginutils": ["@rolldown/pluginutils@1.0.1", "", {}, "sha512-2j9bGt5Jh8hj+vPtgzPtl72j0yRxHAyumoo6TNfAjsLB04UtpSvPbPcDcBMxz7n+9CYB0c1GxQFxYRg2jimqGw=="],
+
+    "@speleodb/api": ["@speleodb/api@workspace:packages/api"],
 
     "@speleodb/map-core": ["@speleodb/map-core@workspace:packages/map-core"],
 

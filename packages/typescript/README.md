@@ -1,4 +1,75 @@
-# Shared TypeScript map packages
+# Shared TypeScript packages
+
+`api` owns the generated `@speleodb/api` client in the independent
+[SpeleoDB-TS-API](https://github.com/OpenSpeleo/SpeleoDB-TS-API) repository. Its
+OpenAPI input comes from the web application's canonical export, including
+SpeleoDB v2, OGC, health, and configured allauth APIs. Generated operations own
+URLs, methods, wire types, and serialization. Web supplies session/CSRF and
+upload-progress policy; mobile supplies native transport, cookie isolation, and
+offline/session policy. External services and signed storage downloads stay
+outside this API boundary. See the package README for export, regeneration,
+verification, and transport examples.
+
+## Maintaining the API contract
+
+The [API package maintenance guide](api/docs/maintenance.md) explains the full
+producer workflow. The [web contract guide](../../apps/web/docs/api-contract.md)
+owns backend schema authoring and endpoint verification. Consumer integration is
+documented in [mobile](../../apps/mobile/docs/api-client.md) and
+[web](../../apps/web/docs/typescript-api-client.md).
+
+`apps/web/OpenAPI.yaml` is the only checked-in schema. The API package's
+`openapi-source.json` records the backend revision and exact input SHA-256.
+Web's `export-api-schema` prek hook regenerates the canonical file when relevant
+backend inputs change. Web CI compares the export's hash with the SDK's source
+record. SDK CI regenerates from its pinned backend revision and checks the
+generated output before publishing version tags through GitHub OIDC, using the
+same trusted-publishing workflow as the map packages.
+
+From the monorepo root, run:
+
+```sh
+bun utilities/openapi-contract/check.mjs
+prek run openapi-contract-match --all-files
+```
+
+The root hook always runs, including for gitlink-only changes, and requires
+matching SHA-256 hashes. Root CI checks the recursively checked-out backend and
+SDK source record. Missing or empty schemas, invalid digests, and differently
+formatted input bytes fail; matching parsed YAML objects are insufficient.
+Regeneration remains web-owned and TypeScript generation remains package-owned.
+The root check only reads local files.
+
+For a local backend export in the existing development container:
+
+```sh
+docker exec -u dev-user -w /app speleodb-monorepo-django \
+  python manage.py export_api_schema
+```
+
+After reviewing that export, update the SDK's source revision and hash, run
+`bun run generate` and `bun run check` from the API package, then run both
+applications' checks from their own directories. Generation retrieves the
+immutable backend export into an OS temporary directory, verifies its hash, and
+discards the temporary input after producing TypeScript. For unpublished backend
+work, explicitly provide an absolute `SPELEODB_OPENAPI_PATH` to the reviewed
+export; no sibling repository is discovered automatically. Before release, the
+recorded revision must be reachable and default remote regeneration must pass.
+
+`--check` on the web export command verifies regeneration without modifying the
+tracked file; `--compare-source` verifies the export's digest against an SDK
+source record. Hash equality proves input consistency; backend contract tests
+separately prove that the schema matches endpoint behavior.
+
+## Package distribution
+
+`@speleodb/api` follows the same live-source workspace and container projection
+as the map packages below. Standalone apps pin `0.1.0`; the root override
+resolves its local checkout. API publication is a separate release gate: before
+the first registry release, validate local source integration and an isolated
+package archive, and do not fabricate registry lock entries. Once publication is
+explicitly authorized, resolve the app standalone locks against that exact
+registry release and verify frozen installs.
 
 `map-core` owns shared map algorithms; `map-viewer` owns MapLibre specifications
 and assets. Each is a registered Git submodule with a public upstream
@@ -50,10 +121,10 @@ preserving overlays on basemap switches remain app-owned acceptance criteria.
 ## Local development
 
 Run `bun ci` at the monorepo root on the host to install every JavaScript
-workspace, including web, mobile, and both map packages. The root manifest's
-workspace overrides resolve shared packages to their local checkouts, while
-Bun's isolated linker preserves each application's dependency versions. The
-canonical app and package manifests stay unchanged, and the frozen root lock
+workspace, including web, mobile, API, and both map packages. The root
+manifest's workspace overrides resolve shared packages to their local checkouts,
+while Bun's isolated linker preserves each application's dependency versions.
+The canonical app and package manifests stay unchanged, and the frozen root lock
 governs third-party dependencies. Source and assets remain live through native
 workspace links. There is no remote fallback for a missing local checkout.
 

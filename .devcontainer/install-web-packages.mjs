@@ -31,7 +31,7 @@ function linkDirectory(path, target) {
     const previous = lstatSync(path, { throwIfNoEntry: false });
     if (previous?.isSymbolicLink() && readlinkSync(path) === target) return;
     if (previous && !previous.isSymbolicLink()) {
-        throw new Error(`Expected a directory symlink at ${path}; refusing to replace existing files.`);
+        throw new Error(`Expected a symlink at ${path}; refusing to replace existing files.`);
     }
     const temporary = `${path}.${process.pid}.tmp`;
     rmSync(temporary, { force: true });
@@ -45,7 +45,7 @@ const manifest = JSON.parse(readFileSync(join(app, 'package.json'), 'utf8'));
 // the temporary manifest directory contains neither app scripts nor source.
 const postinstall = manifest.scripts?.postinstall;
 if (postinstall) delete manifest.scripts.postinstall;
-const packageNames = ['map-core', 'map-viewer'];
+const packageNames = ['api', 'map-core', 'map-viewer'];
 const projections = [];
 manifest.overrides = { ...manifest.overrides };
 manifest.workspaces = packageNames.map(name => `packages/${name}`);
@@ -76,7 +76,8 @@ for (const projection of projections) {
     const projected = join(installation, 'packages', projection.name);
     mkdirSync(projected, { recursive: true });
     writeChanged(join(projected, 'package.json'), `${JSON.stringify(projection.manifest, null, 2)}\n`);
-    for (const entry of ['src', 'assets']) {
+    for (const entry of ['src', 'assets', 'openapi-source.json']) {
+        if (!existsSync(join(projection.directory, entry))) continue;
         linkDirectory(join(projected, entry), join(projection.directory, entry));
     }
 }

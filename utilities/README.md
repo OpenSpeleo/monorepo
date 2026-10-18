@@ -6,6 +6,7 @@ the monorepo; `tools/` remains reserved for workspace orchestration.
 | Tool                                                       | Purpose                                                               |
 | ---------------------------------------------------------- | --------------------------------------------------------------------- |
 | [Compass project import](compass_project_import/README.md) | Create one SpeleoDB COMPASS project per DAT referenced by a MAK file. |
+| [OpenAPI contract equality](openapi-contract/README.md)    | Require byte-identical web and TypeScript SDK contracts.              |
 
 Python scripts declare their own dependencies inline and run with `uv run`. Keep
 credentials in environment variables and local input/output files outside

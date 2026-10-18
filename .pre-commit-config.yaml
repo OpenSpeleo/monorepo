@@ -13,6 +13,7 @@ exclude: >-
     |packages/python/mnemo_lib/
     |packages/python/openspeleo_core/
     |packages/python/openspeleo_lib/
+    |packages/typescript/api/
     |packages/typescript/map-core/
     |packages/typescript/map-viewer/
     |packages/rust/
@@ -101,6 +102,12 @@ repos:
 
   - repo: local
     hooks:
+      - id: openapi-contract-match
+        name: Verify OpenAPI hash matches the SDK source
+        entry: bun utilities/openapi-contract/check.mjs
+        language: system
+        pass_filenames: false
+        always_run: true
       - id: bun-lock-check
         name: Check Bun Lockfile
         entry: bun install --frozen-lockfile --dry-run

@@ -47,7 +47,7 @@ and publication behavior. Run root orchestration commands from the root.
 
 ## Repository model
 
-This integration repository contains thirteen Git submodules. `.gitmodules` is
+This integration repository contains fourteen Git submodules. `.gitmodules` is
 the sole authoritative mapping of names, paths, original URLs, and tracking
 branches. Each parent gitlink pins an exact commit; branch configuration does
 not make normal checkout follow upstream automatically.
@@ -64,6 +64,7 @@ not make normal checkout follow upstream automatically.
 | `packages/python/openspeleo_core` | `packages/python/openspeleo_core` | `master`        |
 | `packages/python/openspeleo_lib`  | `packages/python/openspeleo_lib`  | `master`        |
 | `packages/rust/compass_data`      | `packages/rust/compass_data`      | `main`          |
+| `packages/typescript/api`         | `packages/typescript/api`         | `master`        |
 | `packages/typescript/map-core`    | `packages/typescript/map-core`    | `master`        |
 | `packages/typescript/map-viewer`  | `packages/typescript/map-viewer`  | `master`        |
 | `utilities/git-backup-cronjob`    | `utilities/git-backup-cronjob`    | `master`        |
@@ -284,14 +285,14 @@ child manifests. Do not add child test or build dispatchers. For dependency
 changes, resolve the standalone child lock outside the enclosing workspace, then
 refresh the root integration lock. A child command must not silently validate
 the parent graph. The monorepo-only `bun run lock [--upgrade]` command in web,
-mobile and both map packages delegates to `utilities/bun-lock/lock.mjs`. It
-resolves just the calling package in external staging and writes only that
+mobile, API, and both map packages delegates to `utilities/bun-lock/lock.mjs`.
+It resolves just the calling package in external staging and writes only that
 child's lock. Upgrade mode refreshes the complete graph within unchanged
 manifest constraints. The shared lock utility resolves locks only; it must not
 install dependencies or dispatch child checks. At the monorepo root the same
 command resolves only the top-level `bun.lock`, using
 `.devcontainer/typescript-projection.mjs` to snapshot workspace manifests and
-rewrite shared map dependency specifications only in temporary copies to
+rewrite shared package dependency specifications only in temporary copies to
 `workspace:*`. Root lock declarations and package resolutions must remain local;
 standalone app manifests and locks retain exact npm versions. Root `postinstall`
 invokes the same writer after native installs, including installs launched from
@@ -728,7 +729,23 @@ Before finishing:
 
 Never imply that root validation deploys or releases a standalone project.
 
-## Shared map package distribution
+## Shared TypeScript package distribution
+
+`packages/typescript/api` is the `@speleodb/api` generated client, backed by
+`OpenSpeleo/SpeleoDB-TS-API`. The web repository owns the canonical composed
+OpenAPI contract; the API package owns its source revision/hash, pinned
+generator, generated operations and wire types, transport interfaces, and
+package checks. Applications own authentication, session, offline, and platform
+policies. Keep first-party API calls on generated operations; external resources
+and signed storage downloads remain separate credential-free transports.
+Regeneration and contract checks belong to their child repositories, never root
+CI dispatchers. The root `openapi-contract-match` prek hook and CI perform only
+a read-only SHA-256 comparison of `apps/web/OpenAPI.yaml` against
+`packages/typescript/api/openapi-source.json`. Web's YAML is the sole checked-in
+schema. SDK regeneration consumes a verified export in an OS temporary
+directory; it never stores another schema in the SDK checkout. The hook always
+runs so gitlink-only integration changes cannot skip equality. The root check
+never regenerates the schema or downloads its contents.
 
 `packages/typescript/map-core` and `map-viewer` are registered submodules backed
 by `OpenSpeleo/SpeleoDB-TS-MapCore` and `OpenSpeleo/SpeleoDB-TS-MapViewer`.
