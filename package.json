@@ -13,7 +13,8 @@
   },
   "overrides": {
     "@speleodb/map-core": "workspace:*",
-    "@speleodb/map-viewer": "workspace:*"
+    "@speleodb/map-viewer": "workspace:*",
+    "maplibre-gl": "github:DEKHTIARJonathan/maplibre-gl-js#hotpatch"
   },
   "packageManager": "bun@1.4.2",
   "trustedDependencies": [

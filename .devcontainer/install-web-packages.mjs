@@ -40,6 +40,11 @@ function linkDirectory(path, target) {
 }
 
 const manifest = JSON.parse(readFileSync(join(app, 'package.json'), 'utf8'));
+// App lifecycle code resolves dependencies from /app. Defer it until the
+// shared-package links below work at both dependency-volume mount aliases;
+// the temporary manifest directory contains neither app scripts nor source.
+const postinstall = manifest.scripts?.postinstall;
+if (postinstall) delete manifest.scripts.postinstall;
 const packageNames = ['map-core', 'map-viewer'];
 const projections = [];
 manifest.overrides = { ...manifest.overrides };
@@ -110,6 +115,12 @@ for (const name of packageNames) {
     const installed = realpathSync(join(packageLink, 'src'));
     const expected = realpathSync(join(workspace, 'packages/typescript', name, 'src'));
     if (installed !== expected) throw new Error(`Local ${name} must resolve to live source: ${installed} != ${expected}`);
+}
+if (postinstall) {
+    result = Bun.spawnSync([process.execPath, 'run', 'postinstall'], {
+        cwd: app, stdout: 'inherit', stderr: 'inherit',
+    });
+    if (result.exitCode !== 0) process.exit(result.exitCode);
 }
 if (refresh) {
     writeChanged(lockPath, readFileSync(join(installation, 'bun.lock'), 'utf8'));

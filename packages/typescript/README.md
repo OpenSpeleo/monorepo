@@ -15,7 +15,7 @@ The web viewer previously combined Mapbox rendering with imperative controllers;
 mobile uses MapLibre through React. Both calculate geographic extents, validate
 GIS geometry, enrich survey features, derive depth domains, group landmarks, and
 generate equivalent styling and markers. Keeping duplicate implementations made
-corrections and behavior comparisons expensive. MapLibre 6.10.0 provides a
+corrections and behavior comparisons expensive. MapLibre 6.14.0 provides a
 common renderer vocabulary while app adapters retain their lifecycle owners.
 
 | Owner        | Responsibilities                                                                                                                                                    | Retained boundaries                                                                                                |
@@ -111,9 +111,10 @@ type declarations do not imply a Node runtime requirement.
 ## Standalone npm distribution
 
 Both packages are configured for public npm publication. Mobile and web pin
-`@speleodb/map-core` and `@speleodb/map-viewer` to exact version `0.1.0`.
-Standalone preflight rejects missing versions, ranges, and Git dependencies;
-frozen Bun locks record registry artifacts and their integrity hashes.
+`@speleodb/map-core` to `0.3.0` and `@speleodb/map-viewer` to `0.3.1`.
+Standalone preflight rejects missing versions, ranges, and Git dependencies for
+these shared packages. Frozen Bun locks record registry artifacts and the
+MapLibre fork archive with their integrity hashes.
 
 Each package ships TypeScript source, JSON data, assets and license. `types` and
 runtime exports point to `src/*.ts`; Bun executes that source directly, while
@@ -122,11 +123,17 @@ both packages, excluded from package contents, and never required at install or
 runtime. `bun run build` is an explicit Bun browser-compilation smoke check
 whose output is disposable. There are no dependency installation build hooks.
 
-Viewer depends on core `>=0.1.0 <1.0.0` and declares MapLibre 6.10.0 as a peer.
-Apps explicitly depend on both packages and MapLibre 6.10.0. Both apps also pin
-core in Bun `overrides`, matching their direct dependency, so the viewer
-resolves the same core version. The monorepo projects these dependencies to live
-local workspaces before resolution.
+Viewer depends on core `>=0.3.0 <1.0.0` and declares MapLibre `>=6.14.0 <7.0.0`
+as a peer. Both apps and viewer development use MapLibre 6.14.0 from
+[`DEKHTIARJonathan/maplibre-gl-js#hotpatch`](https://github.com/DEKHTIARJonathan/maplibre-gl-js/tree/hotpatch).
+Its compiled distribution includes the projection and pinch-release fixes;
+consumers do not patch renderer files during installation or builds. The root
+MapLibre override keeps workspace peer dependencies on this same fork. All five
+standalone/integration locks pin its resolved commit.
+
+Both apps pin core in Bun `overrides`, matching their direct dependency, so the
+viewer resolves the same core version. The monorepo projects these shared
+package dependencies to live local workspaces before resolution.
 
 For updates, publish tested package versions, update both apps' npm versions,
 regenerate standalone locks, and prove fresh frozen installs and source-based

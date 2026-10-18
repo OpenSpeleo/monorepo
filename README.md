@@ -79,17 +79,24 @@ The root manifest controls workspace discovery. `bun ci` installs every declared
 JavaScript workspace: mobile, web, and the TypeScript packages. Root overrides
 resolve shared map packages directly to their local checkouts. Keep Bun's
 isolated linker so each application resolves its declared dependency versions.
-For checkouts using the former external dependency cache, run
+The root MapLibre override also directs peer dependencies to the 6.14.0
+`DEKHTIARJonathan/maplibre-gl-js#hotpatch` fork, preventing registry renderer
+copies in the workspace. Frozen locks pin its compiled distribution commit. For
+checkouts using the former external dependency cache, run
 `bun run install:local` once: it preserves old dependency links and standalone
 package copies as ignored backups and runs the same native `bun ci`. Subsequent
 installs use `bun ci`. Standalone manifests stay unchanged. The web devcontainer
 retains its separate Linux dependency volume and automatic local-source overlay.
-Container validation uses an isolated source snapshot; never install Linux
-mobile/package modules into the host bind mount. The root Python project uses
-editable library sources and a virtual web dependency; it is not a uv workspace.
-Child locks remain independent. Bun also runs JavaScript builds, tools and
-Vitest; no separate Node installation is required. Each `bunfig.toml` keeps
-`[run] bun = true` to apply that runtime to child executables.
+The overlay runs the app's postinstall from `/app` after publishing its absolute
+shared-package links. Lifecycle failures fail the installation before a
+refreshed overlay lock is recorded; app scripts are not executed from the
+temporary manifest directory. Container validation uses an isolated source
+snapshot; never install Linux mobile/package modules into the host bind mount.
+The root Python project uses editable library sources and a virtual web
+dependency; it is not a uv workspace. Child locks remain independent. Bun also
+runs JavaScript builds, tools and Vitest; no separate Node installation is
+required. Each `bunfig.toml` keeps `[run] bun = true` to apply that runtime to
+child executables.
 
 To resolve a child standalone Bun lock without touching the parent lock, run
 `bun run lock` from `apps/web`, `apps/mobile`, `packages/typescript/map-core`,
