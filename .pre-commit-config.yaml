@@ -103,7 +103,7 @@ repos:
   - repo: local
     hooks:
       - id: openapi-contract-match
-        name: Verify OpenAPI hash matches the SDK source
+        name: Verify local OpenAPI snapshots and SDK digest match
         entry: bun utilities/openapi-contract/check.mjs
         language: system
         pass_filenames: false

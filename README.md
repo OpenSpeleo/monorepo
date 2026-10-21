@@ -26,7 +26,7 @@ tracking branches; parent gitlinks pin exact commits.
 | `packages/python/openspeleo_core` | [openspeleo_core](https://github.com/OpenSpeleo/openspeleo_core)             | Rust/PyO3 native extension exposed as a Python package, including XML conversion helpers. |
 | `packages/python/openspeleo_lib`  | [pytool_openspeleo_lib](https://github.com/OpenSpeleo/pytool_openspeleo_lib) | Shared Python library for reading, writing, validating, and converting cave-survey data.  |
 | `packages/rust/compass_data`      | [compass_data](https://github.com/zheylmun/compass_data)                     | Rust library for Compass project (`.mak`) and survey (`.dat`) files.                      |
-| `packages/typescript/api`         | [SpeleoDB-TS-API](https://github.com/OpenSpeleo/SpeleoDB-TS-API)             | Generated TypeScript operations and wire types from the web OpenAPI contract.             |
+| `packages/typescript/api`         | [SpeleoDB-TS-API](https://github.com/OpenSpeleo/SpeleoDB-TS-API)             | Generated TypeScript operations and wire types from its owned OpenAPI snapshot.           |
 | `packages/typescript/map-core`    | [SpeleoDB-TS-MapCore](https://github.com/OpenSpeleo/SpeleoDB-TS-MapCore)     | Shared TypeScript map algorithms.                                                         |
 | `packages/typescript/map-viewer`  | [SpeleoDB-TS-MapViewer](https://github.com/OpenSpeleo/SpeleoDB-TS-MapViewer) | Shared MapLibre specifications and assets.                                                |
 
@@ -159,8 +159,11 @@ reset or stash developer work automatically. Publish child commits to their own
 upstreams before recording their gitlinks in the parent repository.
 
 Run each repository's checks directly inside that repository. Root `prek run -a`
-checks root files only. No Git hooks are installed, and there is no root test or
-build dispatcher.
+checks root files plus local OpenAPI snapshot equality. The focused monorepo
+unit test runs with `bun test ./utilities/openapi-contract/check.test.mjs` and
+compares the checked-out web schema, SDK snapshot, and SDK digest. Standalone
+repositories keep independent schema checks. No Git hooks are installed, and
+there is no child test or build dispatcher.
 
 ## Devcontainer
 

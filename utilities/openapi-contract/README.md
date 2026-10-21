@@ -1,38 +1,46 @@
-# OpenAPI contract equality
+# Monorepo OpenAPI snapshot equality
 
-This read-only integration check hashes the sole canonical schema,
-`apps/web/OpenAPI.yaml`, and requires its SHA-256 to equal the generator input
-hash recorded in `packages/typescript/api/openapi-source.json`. The SDK keeps
-the source revision and digest, not a second schema. Missing or empty schemas
-and malformed source records fail. Whitespace, ordering, line endings, and
-trailing newlines all count; the tool never parses or reformats YAML, downloads
-the input, or regenerates files.
+Web owns `apps/web/OpenAPI.yaml`. The SDK owns its independent
+`packages/typescript/api/OpenAPI.yaml` snapshot and records that snapshot's
+SHA-256 in `openapi-source.json`. Each standalone repository generates and
+validates its own files without requiring the other repository or a published
+backend revision.
 
-Run from the monorepo root with the pinned Bun runtime:
+This monorepo integration check requires its selected local schemas to be
+byte-identical and their SHA-256 hashes to equal the SDK's recorded digest.
+Missing or empty schemas and malformed source records fail. Whitespace,
+ordering, line endings, and trailing newlines count. The checker only reads
+local files: it never fetches a schema, consults an upstream revision, regenerates
+files, or dispatches child checks.
+
+Run the focused unit test from the monorepo root with the pinned Bun runtime:
+
+```sh
+bun test ./utilities/openapi-contract/check.test.mjs
+```
+
+The test checks the actual checked-out schemas and metadata, then verifies that
+the checker rejects drift, empty or missing input, and invalid digest records.
+It uses Bun's built-in test runner without installing package dependencies.
+Temporary negative-case fixtures stay outside the checkout.
+
+Root CI runs this test after recursive checkout. The root prek hook also checks
+local equality, including on gitlink-only changes. Run its checker directly or
+through prek:
 
 ```sh
 bun utilities/openapi-contract/check.mjs
 prek run openapi-contract-match --all-files
 ```
 
-The root prek hook runs even when no normal root file matches its filters,
-because changes inside a submodule are represented by its gitlink. The root CI
-also invokes this check after recursive checkout. The two checked-out revisions
-must therefore identify the same contract before their pointers are integrated.
-No network or application services are needed for equality checking.
-
-For an isolated comparison, provide two paths:
+For an isolated comparison, provide all three paths:
 
 ```sh
-bun utilities/openapi-contract/check.mjs /path/to/web/OpenAPI.yaml /path/to/api/openapi-source.json
+bun utilities/openapi-contract/check.mjs /path/to/web/OpenAPI.yaml /path/to/api/OpenAPI.yaml /path/to/api/openapi-source.json
 ```
 
-A mismatch prints both hashes. Regenerate and review the web export using the
-web-owned export command, update the SDK's source revision and digest,
-regenerate its TypeScript output, and run the package and application checks.
-See the
-[API maintenance guide](../../packages/typescript/api/docs/maintenance.md) for
-the complete procedure. Equal digests establish that the SDK records the exact
-backend bytes; backend contract tests and SDK regeneration checks separately
-verify endpoint behavior and generated output. SDK default regeneration must
-also retrieve the recorded immutable revision successfully before release.
+A mismatch prints the hashes and filenames. Review the backend export, update
+the SDK snapshot and its local digest deliberately, and regenerate the SDK as
+described in its [maintenance guide](../../packages/typescript/api/docs/maintenance.md).
+This gate validates the monorepo's chosen integration state. It must not be
+copied into standalone backend or SDK CI, hooks, or release workflows.

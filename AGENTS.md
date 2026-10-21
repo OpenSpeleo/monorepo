@@ -73,7 +73,8 @@ Future JavaScript packages belong under `packages/typescript/`; the Bun
 workspace glob is `packages/typescript/*/` to match directories only.
 
 Use native Git for submodule updates, branches, and publication. Do not add root
-orchestration tools, test suites, or child-check dispatchers.
+orchestration tools, test suites, or child-check dispatchers. The explicitly
+authorized local OpenAPI snapshot equality test is the sole test exception.
 
 ## Non-negotiable rules
 
@@ -170,10 +171,10 @@ update those checkouts automatically.
 Root dependency installation uses `bun ci` and
 `uv sync --python 3.14 --all-extras --frozen`. Application build and test
 commands run directly in the owning child repository. There are no root Make
-wrappers, child check dispatchers, or custom tests. `bun run install:local`
-remains a compatibility entrypoint that migrates legacy dependency links and
-runs native `bun ci`. The `.devcontainer` scripts remain responsible for the
-container's runtime setup.
+wrappers or child check dispatchers. The only custom root test is the local
+OpenAPI snapshot equality check. `bun run install:local` remains a compatibility
+entrypoint that migrates legacy dependency links and runs native `bun ci`. The
+`.devcontainer` scripts remain responsible for the container's runtime setup.
 
 ## Git workflow
 
@@ -667,6 +668,10 @@ editor-specific port forwarding for that response.
 2. `uv lock --check` and `bun ci`, running in parallel after prek.
 3. Build the devcontainer images after both lock checks pass.
 
+The independent `openapi-contract` job runs
+`bun test ./utilities/openapi-contract/check.test.mjs` against local checked-out
+schemas and metadata. It needs only Bun and does not dispatch child checks.
+
 Cache prek environments, uv and Bun downloads, and Docker layers. Use the
 existing Compose files for the devcontainer build. Django is its only image
 build; webserver, worker, scheduler, and setup share Django's Dockerfile and
@@ -674,10 +679,11 @@ args. PostgreSQL uses a prebuilt image and has no Bake target. Every job checks
 out the pinned submodules recursively; Bake uses that runner checkout with
 `source: .` instead of cloning the repository again inside BuildKit.
 
-Do not add custom root tests, orchestration tools, cross-repository pre-commit
-scripts, product checks, or additional CI phases. Child repositories own their
-checks and releases. Root CI must not publish, deploy, start services, push, or
-open PRs.
+Except for the explicitly authorized local OpenAPI snapshot equality test and
+hook, do not add custom root tests, orchestration tools, cross-repository
+pre-commit scripts, product checks, or additional CI phases. Child repositories
+own their checks and releases. Root CI must not publish, deploy, start services,
+push, or open PRs.
 
 ## Railway deployment boundary
 
@@ -693,8 +699,9 @@ these contracts. Deployment requires explicit authorization.
 ## Verification
 
 Use the checks defined in the workflow and each affected child's own
-instructions. Do not create a root test suite. Follow user instructions about
-whether to run local checks or builds, and never claim an unrun check passed.
+instructions. Keep root tests limited to the explicitly authorized local OpenAPI
+snapshot equality check. Follow user instructions about whether to run local
+checks or builds, and never claim an unrun check passed.
 
 ## Configuration synchronization checklist
 
@@ -732,20 +739,24 @@ Never imply that root validation deploys or releases a standalone project.
 ## Shared TypeScript package distribution
 
 `packages/typescript/api` is the `@speleodb/api` generated client, backed by
-`OpenSpeleo/SpeleoDB-TS-API`. The web repository owns the canonical composed
-OpenAPI contract; the API package owns its source revision/hash, pinned
-generator, generated operations and wire types, transport interfaces, and
-package checks. Applications own authentication, session, offline, and platform
-policies. Keep first-party API calls on generated operations; external resources
-and signed storage downloads remain separate credential-free transports.
-Regeneration and contract checks belong to their child repositories, never root
-CI dispatchers. The root `openapi-contract-match` prek hook and CI perform only
-a read-only SHA-256 comparison of `apps/web/OpenAPI.yaml` against
-`packages/typescript/api/openapi-source.json`. Web's YAML is the sole checked-in
-schema. SDK regeneration consumes a verified export in an OS temporary
-directory; it never stores another schema in the SDK checkout. The hook always
-runs so gitlink-only integration changes cannot skip equality. The root check
-never regenerates the schema or downloads its contents.
+`OpenSpeleo/SpeleoDB-TS-API`. The web repository owns its composed OpenAPI
+contract and endpoint verification. The API package owns an independent,
+checked-in `OpenAPI.yaml` snapshot, its local SHA-256 record, pinned generator,
+generated operations and wire types, transport interfaces, and package checks.
+Applications own authentication, session, offline, and platform policies. Keep
+first-party API calls on generated operations; external resources and signed
+storage downloads remain separate credential-free transports.
+
+Schema updates enter the API package through an explicit, reviewed snapshot
+update. Normal SDK generation, checks, and releases consume only that package's
+local snapshot; they must not fetch or require a backend repository revision.
+Each standalone repository validates its own contract independently; its CI,
+hooks, and releases must not require another repository's schema. The monorepo
+alone checks integration equality: `utilities/openapi-contract/check.test.mjs`
+compares the checked-out web schema, SDK snapshot, and SDK SHA-256 record. Root
+CI runs this focused Bun test, and the `openapi-contract-match` prek hook runs
+the local checker. Both read local files without fetching a backend revision,
+regenerating schemas, or dispatching child checks.
 
 `packages/typescript/map-core` and `map-viewer` are registered submodules backed
 by `OpenSpeleo/SpeleoDB-TS-MapCore` and `OpenSpeleo/SpeleoDB-TS-MapViewer`.

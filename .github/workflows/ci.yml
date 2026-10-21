@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   openapi-contract:
-    name: OpenAPI contract source hash
+    name: Monorepo OpenAPI snapshot equality
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -25,7 +25,7 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version-file: .bun-version
-      - run: bun utilities/openapi-contract/check.mjs
+      - run: bun test ./utilities/openapi-contract/check.test.mjs
 
   prek:
     name: Prek

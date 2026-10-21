@@ -2,7 +2,7 @@
 
 `api` owns the generated `@speleodb/api` client in the independent
 [SpeleoDB-TS-API](https://github.com/OpenSpeleo/SpeleoDB-TS-API) repository. Its
-OpenAPI input comes from the web application's canonical export, including
+OpenAPI input is a checked-in snapshot owned by the API package, including
 SpeleoDB v2, OGC, health, and configured allauth APIs. Generated operations own
 URLs, methods, wire types, and serialization. Web supplies session/CSRF and
 upload-progress policy; mobile supplies native transport, cookie isolation, and
@@ -18,48 +18,45 @@ owns backend schema authoring and endpoint verification. Consumer integration is
 documented in [mobile](../../apps/mobile/docs/api-client.md) and
 [web](../../apps/web/docs/typescript-api-client.md).
 
-`apps/web/OpenAPI.yaml` is the only checked-in schema. The API package's
-`openapi-source.json` records the backend revision and exact input SHA-256.
-Web's `export-api-schema` prek hook regenerates the canonical file when relevant
-backend inputs change. Web CI compares the export's hash with the SDK's source
-record. SDK CI regenerates from its pinned backend revision and checks the
-generated output before publishing version tags through GitHub OIDC, using the
-same trusted-publishing workflow as the map packages.
+Web owns `apps/web/OpenAPI.yaml`, exported from its endpoint definitions. The
+API package separately owns `packages/typescript/api/OpenAPI.yaml` and records
+that snapshot's SHA-256 in its own `openapi-source.json`. The repositories
+validate their contracts independently: web checks its export against endpoint
+behavior, while SDK checks regenerate TypeScript from its local snapshot.
+Standalone generation and release do not fetch a backend revision, require
+another checkout, or compare the two repositories' schema hashes.
 
-From the monorepo root, run:
+The monorepo checks that its selected web and SDK revisions agree. Its focused
+unit test compares the exact bytes and SHA-256 hashes of both local schemas with
+the SDK's local digest record. Root CI runs that test; the root
+`openapi-contract-match` prek hook runs the same local checker. Neither runs
+child checks or makes network requests:
 
 ```sh
+bun test ./utilities/openapi-contract/check.test.mjs
 bun utilities/openapi-contract/check.mjs
-prek run openapi-contract-match --all-files
 ```
 
-The root hook always runs, including for gitlink-only changes, and requires
-matching SHA-256 hashes. Root CI checks the recursively checked-out backend and
-SDK source record. Missing or empty schemas, invalid digests, and differently
-formatted input bytes fail; matching parsed YAML objects are insufficient.
-Regeneration remains web-owned and TypeScript generation remains package-owned.
-The root check only reads local files.
+This integration gate belongs only to the monorepo. It does not couple the
+standalone repositories' generation or release workflows.
 
-For a local backend export in the existing development container:
+When adopting an API change, export and review the backend schema, then
+explicitly update the API package's snapshot and local digest. Run
+`bun run generate` and `bun run check` from the API package, and review the
+resulting operations and wire types. The snapshot update is a deliberate
+maintenance step; normal generation uses only the committed package input.
+
+For a backend export in the existing development container:
 
 ```sh
 docker exec -u dev-user -w /app speleodb-monorepo-django \
   python manage.py export_api_schema
 ```
 
-After reviewing that export, update the SDK's source revision and hash, run
-`bun run generate` and `bun run check` from the API package, then run both
-applications' checks from their own directories. Generation retrieves the
-immutable backend export into an OS temporary directory, verifies its hash, and
-discards the temporary input after producing TypeScript. For unpublished backend
-work, explicitly provide an absolute `SPELEODB_OPENAPI_PATH` to the reviewed
-export; no sibling repository is discovered automatically. Before release, the
-recorded revision must be reachable and default remote regeneration must pass.
-
 `--check` on the web export command verifies regeneration without modifying the
-tracked file; `--compare-source` verifies the export's digest against an SDK
-source record. Hash equality proves input consistency; backend contract tests
-separately prove that the schema matches endpoint behavior.
+tracked file. SDK `generate:check` verifies its own generated output without
+requiring the backend to publish or change in the same release. Applications
+adopt a reviewed SDK release through their normal dependency updates.
 
 ## Package distribution
 
