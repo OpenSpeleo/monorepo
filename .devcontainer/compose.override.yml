@@ -88,6 +88,7 @@ x-monorepo-web-environment: &monorepo_web_environment
   POSTGRES_HOST: postgres
   REDIS_URL: redis://redis:6379/0
   CELERY_BROKER_URL: redis://redis:6379/1
+  TEST_CELERY_BROKER_URL: redis://celery-test-redis:6379/0
 
 x-monorepo-setup-environment: &monorepo_setup_environment
   <<: *monorepo_python_environment
