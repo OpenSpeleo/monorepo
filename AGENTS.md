@@ -47,7 +47,7 @@ and publication behavior. Run root orchestration commands from the root.
 
 ## Repository model
 
-This integration repository contains fourteen Git submodules. `.gitmodules` is
+This integration repository contains fifteen Git submodules. `.gitmodules` is
 the sole authoritative mapping of names, paths, original URLs, and tracking
 branches. Each parent gitlink pins an exact commit; branch configuration does
 not make normal checkout follow upstream automatically.
@@ -64,6 +64,7 @@ not make normal checkout follow upstream automatically.
 | `packages/python/openspeleo_core` | `packages/python/openspeleo_core` | `master`        |
 | `packages/python/openspeleo_lib`  | `packages/python/openspeleo_lib`  | `master`        |
 | `packages/rust/compass_data`      | `packages/rust/compass_data`      | `main`          |
+| `packages/rust/speleodb-api`      | `packages/rust/speleodb-api`      | `master`        |
 | `packages/typescript/api`         | `packages/typescript/api`         | `master`        |
 | `packages/typescript/map-core`    | `packages/typescript/map-core`    | `master`        |
 | `packages/typescript/map-viewer`  | `packages/typescript/map-viewer`  | `master`        |
@@ -411,12 +412,34 @@ Never install Git hooks, add `.githooks/`, modify `.git/hooks/`, or configure
 
 ## Rust rules
 
+Keep SDK release numbers in manifests and lockfiles, not Markdown. Refer to
+those files as the source of truth and derive release examples from them.
+
+`packages/rust/speleodb-api` is the standalone `speleodb-api` crate backed by
+`OpenSpeleo/speleodb-api-rs`. Its Cargo-native xtask pins openapi-to-rust and
+owns generation and drift checks. Read its AGENTS.md and maintenance guide. Run
+its checks directly in the child; do not add a root Cargo workspace or child
+dispatcher. Its standalone CI and trusted publishing use only its local
+snapshot. Root integration compares both SDK snapshots with web.
+
 Do not create a root Cargo workspace.
+
+Root `.cargo/config.toml` uses Cargo's native `paths` override for
+`packages/rust/speleodb-api`. Compass Sidecar's standalone dependency remains
+`speleodb-api`, with its registry source and checksum preserved in its own
+`Cargo.lock`. Do not replace that dependency with a sibling path or add a root
+`[patch]` that changes child lockfile identities. Cargo discovers this override
+from the current directory's ancestors, so run monorepo Cargo commands from the
+root or a child directory. Verify standalone resolution outside the checkout.
+Path overrides require the local SDK's dependency graph to match the published
+crate; coordinate dependency changes with the SDK release and consumer lock
+update. Keep source-only SDK edits live without changing child locks.
 
 rust-analyzer links these manifests independently:
 
 - `apps/compass_sidecar/Cargo.toml`
 - `packages/python/openspeleo_core/Cargo.toml`
+- `packages/rust/speleodb-api/Cargo.toml`
 
 The committed toolchain uses stable Rust with rustfmt and clippy. The Compass
 frontend uses React/TypeScript and does not require a Rust WASM target.
@@ -753,10 +776,11 @@ local snapshot; they must not fetch or require a backend repository revision.
 Each standalone repository validates its own contract independently; its CI,
 hooks, and releases must not require another repository's schema. The monorepo
 alone checks integration equality: `utilities/openapi-contract/check.test.mjs`
-compares the checked-out web schema, SDK snapshot, and SDK SHA-256 record. Root
-CI runs this focused Bun test, and the `openapi-contract-match` prek hook runs
-the local checker. Both read local files without fetching a backend revision,
-regenerating schemas, or dispatching child checks.
+compares the checked-out web schema with both TypeScript and Rust SDK snapshots
+and their SHA-256 records. Root CI runs this focused Bun test, and the
+`openapi-contract-match` prek hook runs the local checker. Both read local files
+without fetching a backend revision, regenerating schemas, or dispatching child
+checks.
 
 `packages/typescript/map-core` and `map-viewer` are registered submodules backed
 by `OpenSpeleo/SpeleoDB-TS-MapCore` and `OpenSpeleo/SpeleoDB-TS-MapViewer`.

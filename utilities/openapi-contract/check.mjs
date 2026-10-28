@@ -6,12 +6,20 @@ export const defaultPaths = [
   new URL('../../apps/web/OpenAPI.yaml', import.meta.url),
   new URL('../../packages/typescript/api/OpenAPI.yaml', import.meta.url),
   new URL('../../packages/typescript/api/openapi-source.json', import.meta.url),
+  new URL('../../packages/rust/speleodb-api/OpenAPI.yaml', import.meta.url),
+  new URL('../../packages/rust/speleodb-api/openapi-source.json', import.meta.url),
 ].map((url) => fileURLToPath(url));
 
 // Integration equality is local to this checkout; standalone SDK generation
 // and release use only the SDK-owned snapshot and digest.
 export function checkOpenApiSnapshots(paths = defaultPaths) {
-  const [webPath, sdkPath, sourcePath] = paths;
+  const [webPath, sdkPath, sourcePath, ...otherSdkPaths] = paths;
+  if (otherSdkPaths.length) {
+    if (otherSdkPaths.length % 2) throw new Error('Each SDK requires a schema and source record.');
+    for (let i = 0; i < otherSdkPaths.length; i += 2) {
+      checkOpenApiSnapshots([webPath, otherSdkPaths[i], otherSdkPaths[i + 1]]);
+    }
+  }
   const webBytes = readFileSync(webPath);
   const sdkBytes = readFileSync(sdkPath);
   for (const [path, bytes] of [[webPath, webBytes], [sdkPath, sdkBytes]]) {

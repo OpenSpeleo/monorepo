@@ -26,6 +26,7 @@ tracking branches; parent gitlinks pin exact commits.
 | `packages/python/openspeleo_core` | [openspeleo_core](https://github.com/OpenSpeleo/openspeleo_core)             | Rust/PyO3 native extension exposed as a Python package, including XML conversion helpers. |
 | `packages/python/openspeleo_lib`  | [pytool_openspeleo_lib](https://github.com/OpenSpeleo/pytool_openspeleo_lib) | Shared Python library for reading, writing, validating, and converting cave-survey data.  |
 | `packages/rust/compass_data`      | [compass_data](https://github.com/zheylmun/compass_data)                     | Rust library for Compass project (`.mak`) and survey (`.dat`) files.                      |
+| `packages/rust/speleodb-api`      | [speleodb-api-rs](https://github.com/OpenSpeleo/speleodb-api-rs)             | Generated async Rust SDK for the SpeleoDB API; Cargo-native generation and verification.  |
 | `packages/typescript/api`         | [SpeleoDB-TS-API](https://github.com/OpenSpeleo/SpeleoDB-TS-API)             | Generated TypeScript operations and wire types from its owned OpenAPI snapshot.           |
 | `packages/typescript/map-core`    | [SpeleoDB-TS-MapCore](https://github.com/OpenSpeleo/SpeleoDB-TS-MapCore)     | Shared TypeScript map algorithms.                                                         |
 | `packages/typescript/map-viewer`  | [SpeleoDB-TS-MapViewer](https://github.com/OpenSpeleo/SpeleoDB-TS-MapViewer) | Shared MapLibre specifications and assets.                                                |
@@ -58,6 +59,7 @@ recursive clone.
 | `package.json` / `bun.lock`               | Bun workspace and its integration lock.                                                 |
 | `bunfig.toml` / `.bun-version`            | Isolated dependency installation and pinned Bun runtime.                                |
 | `pyproject.toml` / `uv.lock`              | Python integration environment and its lock.                                            |
+| `.cargo/config.toml`                      | Local Rust SDK override preserving standalone Cargo manifests and locks.                |
 | `rust-toolchain.toml`                     | Rust toolchain, components, and WebAssembly target.                                     |
 | `.pre-commit-config.yaml` / `.prekignore` | Root pre-commit checks and repository boundaries.                                       |
 
@@ -135,6 +137,19 @@ Copy application `.env.dist` templates only when their local files are missing.
 Preserve existing environment files. Follow each child's README and `AGENTS.md`
 for application commands and toolchains.
 
+Rust manifests and locks remain independent. Compass Sidecar declares the
+published `speleodb-api` dependency. Within this monorepo, `.cargo/config.toml`
+applies Cargo's native `paths` override to compile `packages/rust/speleodb-api`
+while preserving the registry entry and checksum in Sidecar's standalone
+`Cargo.lock`. A standalone Sidecar clone uses crates.io. Run Cargo from the
+monorepo root or a child directory so it discovers the ancestor configuration;
+`--manifest-path` alone does not change configuration discovery. rust-analyzer
+inherits the same override through its linked projects. The local SDK must
+retain the published dependency graph: Cargo path overrides support source
+edits, but adding or changing SDK dependencies requires updating the published
+SDK and consumer dependency graph together. See
+[Cargo path overrides](https://doc.rust-lang.org/cargo/reference/overriding-dependencies.html#paths-overrides).
+
 ## Working with submodules
 
 Inspect parent and child changes separately:
@@ -161,9 +176,10 @@ upstreams before recording their gitlinks in the parent repository.
 Run each repository's checks directly inside that repository. Root `prek run -a`
 checks root files plus local OpenAPI snapshot equality. The focused monorepo
 unit test runs with `bun test ./utilities/openapi-contract/check.test.mjs` and
-compares the checked-out web schema, SDK snapshot, and SDK digest. Standalone
-repositories keep independent schema checks. No Git hooks are installed, and
-there is no child test or build dispatcher.
+compares the checked-out web schema with both TypeScript and Rust SDK snapshots
+and their recorded digests. Standalone repositories keep independent schema
+checks. No Git hooks are installed, and there is no child test or build
+dispatcher.
 
 ## Devcontainer
 

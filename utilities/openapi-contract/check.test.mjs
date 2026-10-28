@@ -72,3 +72,21 @@ test.each([null, [], {}, { sha256: 'invalid' }].map((source) => [source]))('reje
   writeFileSync(paths[2], JSON.stringify(source));
   expect(() => checkOpenApiSnapshots(paths)).toThrow('Invalid SDK OpenAPI source record');
 });
+
+
+test('rejects Rust SDK snapshot or digest drift independently of the TypeScript SDK', () => {
+  const { paths, digest } = fixturePaths();
+  const rustSchema = join(temporaryDirectories.at(-1), 'rust.yaml');
+  const rustSource = join(temporaryDirectories.at(-1), 'rust-source.json');
+  writeFileSync(rustSchema, readFileSync(paths[0]));
+  writeFileSync(rustSource, JSON.stringify({ sha256: digest }));
+  const all = [...paths, rustSchema, rustSource];
+  expect(checkOpenApiSnapshots(all)).toBe(digest);
+  writeFileSync(rustSchema, 'drift');
+  expect(() => checkOpenApiSnapshots(all)).toThrow('must match');
+  writeFileSync(rustSchema, readFileSync(paths[0]));
+  writeFileSync(rustSource, JSON.stringify({ sha256: '0'.repeat(64) }));
+  expect(() => checkOpenApiSnapshots(all)).toThrow('must match');
+  rmSync(rustSource);
+  expect(() => checkOpenApiSnapshots(all)).toThrow();
+});

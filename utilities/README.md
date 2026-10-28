@@ -3,10 +3,10 @@
 Small operational tools, with one directory and README per tool. These belong to
 the monorepo; `tools/` remains reserved for workspace orchestration.
 
-| Tool                                                       | Purpose                                                               |
-| ---------------------------------------------------------- | --------------------------------------------------------------------- |
-| [Compass project import](compass_project_import/README.md) | Create one SpeleoDB COMPASS project per DAT referenced by a MAK file. |
-| [OpenAPI snapshot equality](openapi-contract/README.md) | Verify local web and SDK snapshots and the SDK digest match. |
+| Tool                                                       | Purpose                                                                    |
+| ---------------------------------------------------------- | -------------------------------------------------------------------------- |
+| [Compass project import](compass_project_import/README.md) | Create one SpeleoDB COMPASS project per DAT referenced by a MAK file.      |
+| [OpenAPI snapshot equality](openapi-contract/README.md)    | Verify local web, TypeScript SDK and Rust SDK snapshots and digests match. |
 
 Python scripts declare their own dependencies inline and run with `uv run`. Keep
 credentials in environment variables and local input/output files outside

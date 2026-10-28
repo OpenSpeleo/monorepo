@@ -1,17 +1,18 @@
 # Monorepo OpenAPI snapshot equality
 
-Web owns `apps/web/OpenAPI.yaml`. The SDK owns its independent
-`packages/typescript/api/OpenAPI.yaml` snapshot and records that snapshot's
-SHA-256 in `openapi-source.json`. Each standalone repository generates and
-validates its own files without requiring the other repository or a published
-backend revision.
+Web owns `apps/web/OpenAPI.yaml`. Both SDKs own independent snapshots at
+`packages/typescript/api/OpenAPI.yaml` and
+`packages/rust/speleodb-api/OpenAPI.yaml`, with SHA-256 records in their own
+`openapi-source.json`. Each standalone repository generates and validates its
+own files without requiring the other repository or a published backend
+revision.
 
 This monorepo integration check requires its selected local schemas to be
 byte-identical and their SHA-256 hashes to equal the SDK's recorded digest.
 Missing or empty schemas and malformed source records fail. Whitespace,
 ordering, line endings, and trailing newlines count. The checker only reads
-local files: it never fetches a schema, consults an upstream revision, regenerates
-files, or dispatches child checks.
+local files: it never fetches a schema, consults an upstream revision,
+regenerates files, or dispatches child checks.
 
 Run the focused unit test from the monorepo root with the pinned Bun runtime:
 
@@ -41,6 +42,7 @@ bun utilities/openapi-contract/check.mjs /path/to/web/OpenAPI.yaml /path/to/api/
 
 A mismatch prints the hashes and filenames. Review the backend export, update
 the SDK snapshot and its local digest deliberately, and regenerate the SDK as
-described in its [maintenance guide](../../packages/typescript/api/docs/maintenance.md).
-This gate validates the monorepo's chosen integration state. It must not be
-copied into standalone backend or SDK CI, hooks, or release workflows.
+described in its
+[maintenance guide](../../packages/typescript/api/docs/maintenance.md). This
+gate validates the monorepo's chosen integration state. It must not be copied
+into standalone backend or SDK CI, hooks, or release workflows.

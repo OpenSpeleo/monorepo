@@ -9,7 +9,8 @@
   "python.defaultInterpreterPath": "/opt/speleodb-venv/bin/python",
   "rust-analyzer.linkedProjects": [
     "${workspaceFolder}/apps/compass_sidecar/Cargo.toml",
-    "${workspaceFolder}/packages/python/openspeleo_core/Cargo.toml"
+    "${workspaceFolder}/packages/python/openspeleo_core/Cargo.toml",
+    "${workspaceFolder}/packages/rust/speleodb-api/Cargo.toml"
   ],
   "rust-analyzer.cargo.features": "all",
   "rust-analyzer.check.command": "clippy",
