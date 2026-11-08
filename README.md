@@ -94,17 +94,22 @@ regenerate the integration lock. For checkouts using the former external
 dependency cache, run `bun run install:local` once: it preserves old dependency
 links and standalone package copies as ignored backups and runs the same native
 `bun ci`. Subsequent installs use `bun ci`. Standalone manifests stay unchanged.
-The web devcontainer retains its separate Linux dependency volume and automatic
-local-source overlay. The overlay runs the app's postinstall from `/app` after
-publishing its absolute shared-package links. Lifecycle failures fail the
-installation before a refreshed overlay lock is recorded; app scripts are not
-executed from the temporary manifest directory. Container validation uses an
-isolated source snapshot; never install Linux mobile/package modules into the
-host bind mount. The root Python project uses editable library sources and a
-virtual web dependency; it is not a uv workspace. Child locks remain
-independent. Bun also runs JavaScript builds, tools and Vitest; no separate Node
-installation is required. Each `bunfig.toml` keeps `[run] bun = true` to apply
-that runtime to child executables.
+The web devcontainer installs the same full workspace graph from root
+`bun.lock`, including mobile dependencies, in its Linux cache. It uses the same
+temporary manifest projection as the root lock writer and Bun's isolated linker.
+Web's dependency links are published through its existing named volume at `/app`
+and `/workspace/apps/web`; shared TypeScript sources stay live. Previous hoisted
+package directories are preserved as `*.before-workspace-*` backups in that
+volume. There is no separate container lock to refresh: update root `bun.lock`
+with `bun run lock` after dependency changes. Workspace lifecycle scripts are
+omitted from the dependency-only cache; web's postinstall, if present, runs from
+`/app` after publication. Mobile native patch/build scripts are not run.
+Container validation uses an isolated source snapshot; never install Linux
+mobile/package modules into the host bind mount. The root Python project uses
+editable library sources and a virtual web dependency; it is not a uv workspace.
+Child locks remain independent. Bun also runs JavaScript builds, tools and
+Vitest; no separate Node installation is required. Each `bunfig.toml` keeps
+`[run] bun = true` to apply that runtime to child executables.
 
 To resolve a child standalone Bun lock without touching the parent lock, run
 `bun run lock` from `apps/web`, `apps/mobile`, `packages/typescript/api`,
@@ -121,9 +126,8 @@ shared dependencies, so the root lock consistently records workspace references.
 Canonical app manifests and standalone app locks retain exact npm versions. Root
 `postinstall` runs this same lock writer after native `bun install`, including
 installs launched from an app directory; it does not freeze installs or change
-their dependency layout. Child locks and `.devcontainer/web-packages.lock`
-remain separate. Run `bun ci` afterward when installed dependencies need
-updating.
+their dependency layout. Child locks remain independent; the container consumes
+the root lock. Run `bun ci` afterward when installed dependencies need updating.
 
 Use `bun run lock` to update only the root lock. Raw
 `bun install --lockfile-only` skips lifecycle scripts and writes the version

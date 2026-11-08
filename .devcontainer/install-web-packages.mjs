@@ -1,14 +1,16 @@
-import { existsSync, lstatSync, mkdirSync, readFileSync, readlinkSync, realpathSync, renameSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, readlinkSync, realpathSync, renameSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { projectTypeScriptWorkspace } from './typescript-projection.mjs';
 
 // This is a container lifecycle overlay, never a standalone app install path.
 const workspace = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const app = process.env.SPELEODB_WEB_ROOT ?? '/app';
 // Every service already mounts this persistent volume at the identical path.
 const installation = process.env.SPELEODB_WEB_INSTALL_ROOT ?? '/monorepo-python-build-cache/web-packages';
-const lockPath = join(workspace, '.devcontainer/web-packages.lock');
-const refresh = process.argv.includes('--refresh-lock');
+if (process.argv.slice(2).some(arg => arg !== '--install-locked')) {
+    throw new Error('This installer consumes root bun.lock. Update it with bun run lock on the host.');
+}
 mkdirSync(installation, { recursive: true });
 if (!process.argv.includes('--install-locked')) {
     // Linux flock serializes metadata, install and publication across containers.
@@ -39,91 +41,66 @@ function linkDirectory(path, target) {
     renameSync(temporary, path);
 }
 
-const manifest = JSON.parse(readFileSync(join(app, 'package.json'), 'utf8'));
-// App lifecycle code resolves dependencies from /app. Defer it until the
-// shared-package links below work at both dependency-volume mount aliases;
-// the temporary manifest directory contains neither app scripts nor source.
-const postinstall = manifest.scripts?.postinstall;
-if (postinstall) delete manifest.scripts.postinstall;
-const packageNames = ['api', 'map-core', 'map-viewer'];
-const projections = [];
-manifest.overrides = { ...manifest.overrides };
-manifest.workspaces = packageNames.map(name => `packages/${name}`);
-for (const name of packageNames) {
-    const directory = join(workspace, 'packages/typescript', name);
-    if (!existsSync(join(directory, 'package.json')) || !existsSync(join(directory, 'src/index.ts'))) {
-        throw new Error(`Local ${name} source is missing: ${directory}. No remote fallback is permitted.`);
-    }
-    const packageManifest = JSON.parse(readFileSync(join(directory, 'package.json'), 'utf8'));
-    if (packageManifest.name !== `@speleodb/${name}` || !existsSync(join(directory, 'src'))) {
-        throw new Error(`Local ${name} source is missing or invalid: ${directory}. No remote fallback is permitted.`);
-    }
-    const { devDependencies: _developmentOnly, ...runtimeManifest } = packageManifest;
-    for (const group of ['dependencies', 'optionalDependencies']) {
-        if (!runtimeManifest[group]) continue;
-        for (const sibling of packageNames) {
-            if (runtimeManifest[group][`@speleodb/${sibling}`]) {
-                runtimeManifest[group][`@speleodb/${sibling}`] = 'workspace:*';
+// Use exactly the graph used to generate the root lock. Keep the old cache
+// layout intact during migration; only this directory receives Linux installs.
+const root = join(installation, 'workspace');
+const { manifest, projections } = projectTypeScriptWorkspace(workspace);
+for (const { relative, projected, directory } of [
+    { relative: '', projected: manifest, directory: workspace }, ...projections,
+]) {
+    const destination = join(root, relative);
+    mkdirSync(destination, { recursive: true });
+    // This is a dependency installation, not an application checkout. In
+    // particular, do not run root lock generation or mobile native patches.
+    const { scripts: _scripts, ...dependencies } = projected;
+    writeChanged(join(destination, 'package.json'), `${JSON.stringify(dependencies, null, 2)}\n`);
+    if (relative.startsWith('packages/typescript/')) {
+        for (const entry of ['src', 'assets', 'openapi-source.json']) {
+            if (existsSync(join(directory, entry))) {
+                linkDirectory(join(destination, entry), join(directory, entry));
             }
         }
     }
-    projections.push({ name, directory, manifest: { ...runtimeManifest, speleodbLocalSources: true } });
-    manifest.dependencies[packageManifest.name] = 'workspace:*';
-    delete manifest.overrides[packageManifest.name];
 }
-// Bun validates the projected dependency graph against the frozen lock below.
-for (const projection of projections) {
-    const projected = join(installation, 'packages', projection.name);
-    mkdirSync(projected, { recursive: true });
-    writeChanged(join(projected, 'package.json'), `${JSON.stringify(projection.manifest, null, 2)}\n`);
-    for (const entry of ['src', 'assets', 'openapi-source.json']) {
-        if (!existsSync(join(projection.directory, entry))) continue;
-        linkDirectory(join(projected, entry), join(projection.directory, entry));
-    }
-}
-writeChanged(join(installation, 'package.json'), `${JSON.stringify(manifest, null, 2)}\n`);
-const modules = join(installation, 'node_modules');
-linkDirectory(modules, join(app, 'node_modules'));
-if (realpathSync(modules) !== realpathSync(join(app, 'node_modules'))) {
-    throw new Error('The local install must use the existing application dependency volume.');
-}
-if (refresh) {
-    // Start with the canonical standalone graph, retaining existing third-party pins.
-    writeChanged(join(installation, 'bun.lock'), readFileSync(join(app, 'bun.lock'), 'utf8'));
-} else writeChanged(join(installation, 'bun.lock'), readFileSync(lockPath, 'utf8'));
-const command = [process.execPath, 'install', '--linker=hoisted', ...(refresh ? ['--lockfile-only'] : ['--frozen-lockfile'])];
-let result = Bun.spawnSync(command, { cwd: installation, stdout: 'inherit', stderr: 'inherit' });
+writeChanged(join(root, 'bunfig.toml'), readFileSync(join(workspace, 'bunfig.toml'), 'utf8'));
+writeChanged(join(root, 'bun.lock'), readFileSync(join(workspace, 'bun.lock'), 'utf8'));
+const result = Bun.spawnSync([process.execPath, 'install', '--frozen-lockfile'], {
+    cwd: root, stdout: 'inherit', stderr: 'inherit',
+});
 if (result.exitCode !== 0) process.exit(result.exitCode);
-if (refresh) {
-    result = Bun.spawnSync([process.execPath, 'install', '--linker=hoisted', '--frozen-lockfile'], {
-        cwd: installation, stdout: 'inherit', stderr: 'inherit',
-    });
-    if (result.exitCode !== 0) process.exit(result.exitCode);
-}
-if (realpathSync(modules) !== realpathSync(join(app, 'node_modules'))) {
-    throw new Error('Bun replaced the dependency volume link; the application installation was not published.');
-}
-for (const name of packageNames) {
-    // The same volume is mounted at /app and /workspace/apps/web. Bun's
-    // relative workspace links depend on mount depth; absolute links work at
-    // both aliases and retain live source without copying package code.
-    const packageLink = join(app, 'node_modules/@speleodb', name);
-    const projected = join(installation, 'packages', name);
-    if (!lstatSync(packageLink).isSymbolicLink()) {
-        throw new Error(`Bun did not install the local ${name} workspace.`);
+
+// Publish web's isolated dependency links through its existing volume. Absolute
+// targets work at both /app and /workspace/apps/web, regardless of mount depth.
+// Preserve directories from the previous hoisted installation as local backups.
+const modules = join(app, 'node_modules');
+function publish(source, destination) {
+    const previous = lstatSync(destination, { throwIfNoEntry: false });
+    if (previous && !previous.isSymbolicLink()) {
+        renameSync(destination, `${destination}.before-workspace-${Date.now()}`);
     }
-    linkDirectory(packageLink, projected);
-    const installed = realpathSync(join(packageLink, 'src'));
+    linkDirectory(destination, realpathSync(source));
+}
+const webModules = join(root, 'apps/web/node_modules');
+for (const entry of readdirSync(webModules)) {
+    if (entry.startsWith('@')) {
+        mkdirSync(join(modules, entry), { recursive: true });
+        for (const name of readdirSync(join(webModules, entry))) {
+            publish(join(webModules, entry, name), join(modules, entry, name));
+        }
+    } else {
+        publish(join(webModules, entry), join(modules, entry));
+    }
+}
+for (const name of ['api', 'map-core', 'map-viewer']) {
+    const installed = realpathSync(join(modules, '@speleodb', name, 'src'));
     const expected = realpathSync(join(workspace, 'packages/typescript', name, 'src'));
     if (installed !== expected) throw new Error(`Local ${name} must resolve to live source: ${installed} != ${expected}`);
 }
-if (postinstall) {
-    result = Bun.spawnSync([process.execPath, 'run', 'postinstall'], {
+const web = JSON.parse(readFileSync(join(app, 'package.json'), 'utf8'));
+if (web.scripts?.postinstall) {
+    const lifecycle = Bun.spawnSync([process.execPath, 'run', 'postinstall'], {
         cwd: app, stdout: 'inherit', stderr: 'inherit',
     });
-    if (result.exitCode !== 0) process.exit(result.exitCode);
+    if (lifecycle.exitCode !== 0) process.exit(lifecycle.exitCode);
 }
-if (refresh) {
-    writeChanged(lockPath, readFileSync(join(installation, 'bun.lock'), 'utf8'));
-}
-console.log('SpeleoDB live local TypeScript packages: OK (no shared Git dependency fetched)');
+console.log('SpeleoDB Linux workspace dependencies: OK (root bun.lock, live local TypeScript sources)');

@@ -251,8 +251,8 @@ one consistent dependency tree. Root overrides resolve shared packages to live
 local workspaces. Never publish host `node_modules` links to an external
 projected workspace: subsequent native installs can invalidate those links. Root
 Compose retains `.devcontainer/install-web-packages.mjs` for its separate Linux
-dependency volume; its frozen integration lock preserves the standalone manifest
-while using live local sources.
+dependency volume; it consumes root `bun.lock` through the same full-workspace
+manifest projection as the root lock writer, while using live local sources.
 
 Bun is the package manager and JavaScript runtime. Keep `.bun-version`,
 `packageManager`, and `engines.bun` aligned at the exact declared version in the
@@ -273,8 +273,10 @@ Maintain all relevant locks:
 - root `bun.lock` for integration;
 - `apps/mobile/bun.lock` for standalone mobile;
 - `apps/web/bun.lock` for standalone web;
-- each TypeScript package's `bun.lock` for independent checks;
-- `.devcontainer/web-packages.lock` for the local web overlay.
+- each TypeScript package's `bun.lock` for independent checks.
+
+The devcontainer also consumes root `bun.lock`; do not add a separate container
+lock.
 
 Standalone installs use `test -s bun.lock && bun install --frozen-lockfile`.
 Root installs use `bun ci` against the canonical workspace manifests and frozen
@@ -304,18 +306,23 @@ normalization; use `bun run lock` for canonical root lock-only updates, or run
 it after a deliberate bypass. The `install:local --refresh-lock` wrapper invokes
 the canonical writer explicitly, even with `--ignore-scripts`. The writer
 includes web, mobile, and TypeScript packages, and leaves child locks, installed
-dependencies, and the web overlay lock untouched. Mobile's lock hook uses its
-isolated standalone lock checker. Review approved `trustedDependencies` when
-changing the graph.
+dependencies untouched. Mobile's lock hook uses its isolated standalone lock
+checker. Review approved `trustedDependencies` when changing the graph.
 
-Web uses its pinned Bun runtime from `/app` in the existing container. Refresh
-the root overlay with
-`bun /workspace/.devcontainer/install-web-packages.mjs --refresh-lock` after
-manifest changes. The projection lives on the existing shared cache volume at
-`/monorepo-python-build-cache/web-packages`, accessible at the same path in
-every service. Its OS lock serializes projection, install, and link publication.
-Validate standalone and root installs when changing dependency topology; absent
-Git remotes are an explicit standalone release gate, never permission to
+Web uses its pinned Bun runtime from `/app` in the existing container. The
+container installer consumes root `bun.lock` with the same manifest projection
+as the root lock writer, including mobile and package development dependencies.
+Use `bun run lock` on the host after manifest changes; there is no container
+lock or `--refresh-lock` step. The isolated Linux installation lives at
+`/monorepo-python-build-cache/web-packages/workspace`, accessible at the same
+path in every service. Its OS lock serializes projection, install, and web link
+publication. Absolute links expose web's isolated dependencies through its
+existing volume at both mount aliases. Preserve previous hoisted directories as
+`*.before-workspace-*` backups. Omit workspace lifecycle scripts in the cache;
+run web's postinstall from `/app` after publication when present. Do not run
+mobile native patch/build scripts or publish Linux dependencies into host
+mounts. Validate standalone and root installs when changing dependency topology;
+absent Git remotes are an explicit standalone release gate, never permission to
 fabricate URLs or SHAs.
 
 Workspace discovery uses the standard workspace manifest. Preserve the trailing
@@ -734,7 +741,7 @@ When structure or tooling changes, update every applicable surface:
 - root `pyproject.toml` and lock
 - standalone app/package locks
 - `.vscode/settings.json` and recommendations
-- `.devcontainer/` composition, features, lock, and setup
+- `.devcontainer/` composition, features, and setup
 - root `.gitmodules` and nested `.gitmodules`
 - `.github/workflows/ci.yml`
 - `README.md`
@@ -790,7 +797,7 @@ versions and matching core overrides; viewer accepts core `>=0.1.0 <1.0.0`. Keep
 standalone registry locks separate from the live local source projections.
 Publishing still requires explicit user authorization.
 
-Root Bun workspace overrides and the container's web manifest projection own
+Root Bun workspace overrides and the container's full workspace projection own
 local source resolution. Both apps and viewer-to-core must resolve locally
 before any shared dependency fetch. Both local and standalone builds consume
 TypeScript source exports, including source type exports. Applications compile
