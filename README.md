@@ -178,12 +178,14 @@ reset or stash developer work automatically. Publish child commits to their own
 upstreams before recording their gitlinks in the parent repository.
 
 Run each repository's checks directly inside that repository. Root `prek run -a`
-checks root files plus local OpenAPI snapshot equality. The focused monorepo
-unit test runs with `bun test ./utilities/openapi-contract/check.test.mjs` and
-compares the checked-out web schema with both TypeScript and Rust SDK snapshots
-and their recorded digests. Standalone repositories keep independent schema
-checks. No Git hooks are installed, and there is no child test or build
-dispatcher.
+checks root files plus local OpenAPI snapshot equality. Run `bun test` from the
+monorepo root to compare the checked-out web schema with both TypeScript and
+Rust SDK snapshots and their recorded digests. Root `bunfig.toml` limits test
+discovery to `utilities/openapi-contract/`; child suites use their own runners
+and repository-local configuration. The explicit command
+`bun test ./utilities/openapi-contract/check.test.mjs` runs the same suite.
+Standalone repositories keep independent schema checks. No Git hooks are
+installed, and there is no child test or build dispatcher.
 
 ## Devcontainer
 

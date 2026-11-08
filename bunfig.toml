@@ -1,5 +1,9 @@
 [run]
 bun = true
 
+[test]
+# Child suites use their own runners and repository-local configuration.
+root = "./utilities/openapi-contract"
+
 [install]
 linker = "isolated"

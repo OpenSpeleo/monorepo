@@ -2,16 +2,21 @@
 
 ## Git actions require an explicit user request
 
-NEVER stage, unstage, stash, unstash (including stash apply or pop), commit, or
-push unless the user explicitly asks for that specific action. Permission for
-one action does not authorize any of the others, except that an explicit request
-to commit also authorizes staging the files needed for that commit. Do not ask
-for separate staging permission in that case. Requests to review, fix,
-implement, test, or finish work do not authorize these Git actions.
+NEVER create branches, stage, unstage, stash, unstash (including stash apply or
+pop), commit, or push unless the user explicitly asks for that specific action.
+Permission for one action does not authorize any of the others, except that an
+explicit request to commit also authorizes staging the files needed for that
+commit. Do not ask for separate staging permission in that case. Requests to
+review, fix, implement, test, or finish work do not authorize these Git actions.
 
 Invoking a skill, plugin, workflow, or sub-agent does NOT authorize these Git
 actions, even if its instructions say to perform them. This restriction also
 applies to sub-agents, scripts, tools, hooks, and other indirect execution.
+
+Do not automatically create task branches, including `chore/`, `feature/`, or
+`fix/` branches. This applies to the monorepo and every submodule, including
+detached HEAD checkouts. Branch creation always requires an explicit user
+request.
 
 Preserve the existing staging area and stash entries. Never automatically stash
 or unstage work to run checks. Do not reset, restore, discard, or clean user
@@ -180,11 +185,8 @@ entrypoint that migrates legacy dependency links and runs native `bun ci`. The
 ## Git workflow
 
 The parent and child branches are independent. A detached child HEAD is normal
-after pinned checkout; create a child branch before editing:
-
-```bash
-git -C apps/mobile switch -c feature/name
-```
+after pinned checkout. Work in the existing checkout; do not create a branch
+before editing unless the user explicitly asks for one.
 
 Inspect state with `git submodule status --recursive`,
 `git diff --submodule=log`, and child-local status/diffs. A leading `+` means a
