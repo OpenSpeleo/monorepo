@@ -42,6 +42,11 @@
 	url = ../pytool_openspeleo_lib.git
 	branch = master
 
+[submodule "packages/python/stalagmight_lib"]
+	path = packages/python/stalagmight_lib
+	url = ../pytool_stalagmight_lib.git
+	branch = master
+
 [submodule "packages/rust/compass_data"]
 	path = packages/rust/compass_data
 	url = https://github.com/zheylmun/compass_data.git

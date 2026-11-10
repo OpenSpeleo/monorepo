@@ -24,6 +24,15 @@ changes without an explicit request for that action. If the user tells you to
 stop Git operations, stop immediately and do not attempt to undo previous Git
 actions without a new explicit request.
 
+## Documentation references
+
+Do not copy literal commit SHAs, checksums, UUID values, or current package,
+dependency, and runtime version numbers into documentation or agent
+instructions. Refer to authoritative manifests, lockfiles, CI configuration,
+source paths, and regression tests instead. Describe UUID behavior without
+sample identity values. Stable file-format schema requirements and protocol
+discriminants may be stated when they define supported behavior.
+
 ## Temporary agent files
 
 Keep agent plans, task lists, TODO tracking, progress notes, review notes, and
@@ -174,13 +183,13 @@ Clone recursively with native Git. Initialize an existing clean checkout using
 Preserve intentional branches, dirty work, and gitlink differences; do not
 update those checkouts automatically.
 
-Root dependency installation uses `bun ci` and
-`uv sync --python 3.14 --all-extras --frozen`. Application build and test
-commands run directly in the owning child repository. There are no root Make
-wrappers or child check dispatchers. The only custom root test is the local
-OpenAPI snapshot equality check. `bun run install:local` remains a compatibility
-entrypoint that migrates legacy dependency links and runs native `bun ci`. The
-`.devcontainer` scripts remain responsible for the container's runtime setup.
+Root dependency installation uses `bun ci` and `uv sync --all-extras --frozen`.
+Application build and test commands run directly in the owning child repository.
+There are no root Make wrappers or child check dispatchers. The only custom root
+test is the local OpenAPI snapshot equality check. `bun run install:local`
+remains a compatibility entrypoint that migrates legacy dependency links and
+runs native `bun ci`. The `.devcontainer` scripts remain responsible for the
+container's runtime setup.
 
 ## Git workflow
 
@@ -357,16 +366,17 @@ paths relative to app-local `node_modules`, rather than embedding cache paths.
 ## Python and uv rules
 
 The root uv project must remain a normal integration project, not a uv
-workspace. It uses Python 3.14 and requires uv >=0.12.17 for the upstream web
-metadata-style dependency overrides. Preserve `tool.uv.required-version`; CI
-uses the latest uv release. Root development dependencies allow `prek>=0.5.3,<1`
-to accommodate web's prek 0.5.3 pin. Editable path sources map:
+workspace. It uses the Python and uv versions declared in `pyproject.toml` for
+the upstream web metadata-style dependency overrides. Preserve
+`tool.uv.required-version`; CI uses the latest uv release. Root development
+dependencies accommodate the web manifest's prek pin. Editable path sources map:
 
 - `ariane_lib`
 - `compass_lib`
 - `mnemo_lib`
 - `openspeleo_core`
 - `openspeleo_lib`
+- `stalagmight_lib`
 
 The root also depends on `speleodb_website[local]` through
 `speleodb_website = { path = "./apps/web/", package = false }`. Preserve
@@ -388,7 +398,7 @@ cd packages/python/<package>
 uv lock
 cd ../../..
 uv lock
-uv sync --python 3.14 --all-extras --frozen
+uv sync --all-extras --frozen
 ```
 
 Do not discard or replace pre-existing staged lock updates.
@@ -476,7 +486,7 @@ Preserve each Cargo lock and standalone build layout.
 
 Ariane uses:
 
-- its own Gradle 9.4.1 wrapper;
+- its own versioned Gradle wrapper;
 - Java 25 toolchain/source/target;
 - its own settings and build files;
 - two nested API gitlinks.
@@ -795,9 +805,9 @@ checks.
 by `OpenSpeleo/SpeleoDB-TS-MapCore` and `OpenSpeleo/SpeleoDB-TS-MapViewer`.
 Verify upstream reachability before changing dependency pins or parent gitlinks.
 Their manifests permit public npm publication. Standalone apps pin exact npm
-versions and matching core overrides; viewer accepts core `>=0.1.0 <1.0.0`. Keep
-standalone registry locks separate from the live local source projections.
-Publishing still requires explicit user authorization.
+versions and matching core overrides; viewer declares its supported core range
+in its manifest. Keep standalone registry locks separate from the live local
+source projections. Publishing still requires explicit user authorization.
 
 Root Bun workspace overrides and the container's full workspace projection own
 local source resolution. Both apps and viewer-to-core must resolve locally

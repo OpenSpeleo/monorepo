@@ -25,6 +25,7 @@ tracking branches; parent gitlinks pin exact commits.
 | `packages/python/mnemo_lib`       | [pytool_mnemo_lib](https://github.com/OpenSpeleo/pytool_mnemo_lib)           | Read and convert Mnemo survey dump files.                                                 |
 | `packages/python/openspeleo_core` | [openspeleo_core](https://github.com/OpenSpeleo/openspeleo_core)             | Rust/PyO3 native extension exposed as a Python package, including XML conversion helpers. |
 | `packages/python/openspeleo_lib`  | [pytool_openspeleo_lib](https://github.com/OpenSpeleo/pytool_openspeleo_lib) | Shared Python library for reading, writing, validating, and converting cave-survey data.  |
+| `packages/python/stalagmight_lib` | Native StalagMight reader                                                    | Immutable SQLite survey models, including geographic metadata for OpenSpeleo.             |
 | `packages/rust/compass_data`      | [compass_data](https://github.com/zheylmun/compass_data)                     | Rust library for Compass project (`.mak`) and survey (`.dat`) files.                      |
 | `packages/rust/speleodb-api`      | [speleodb-api-rs](https://github.com/OpenSpeleo/speleodb-api-rs)             | Generated async Rust SDK for the SpeleoDB API; Cargo-native generation and verification.  |
 | `packages/typescript/api`         | [SpeleoDB-TS-API](https://github.com/OpenSpeleo/SpeleoDB-TS-API)             | Generated TypeScript operations and wire types from its owned OpenAPI snapshot.           |
@@ -70,12 +71,13 @@ git clone --recurse-submodules git@github.com:OpenSpeleo/monorepo.git
 cd monorepo
 ```
 
-Use Bun from `.bun-version`, Python 3.14, and uv 0.12.17 or newer. Install the
-shared dependency environments on the host when needed:
+Use Bun from `.bun-version` and the Python and uv requirements from
+`pyproject.toml`. Install the shared dependency environments on the host when
+needed:
 
 ```bash
 bun ci
-uv sync --python 3.14 --all-extras --frozen
+uv sync --all-extras --frozen
 ```
 
 The root manifest controls workspace discovery. `bun ci` installs every declared
@@ -83,33 +85,39 @@ JavaScript workspace: mobile, web, and the TypeScript packages. Root overrides
 resolve the API and shared map packages directly to their local checkouts. Keep
 Bun's isolated linker so each application resolves its declared dependency
 versions. The root MapLibre override also directs peer dependencies to the
-6.14.0 `DEKHTIARJonathan/maplibre-gl-js` fork, preventing registry renderer
-copies in the workspace. The override uses the immutable GitHub archive of
-reviewed `hotpatch` commit `0566606682dc786d56e37214199901407fa51d89`, including
-its compiled distribution. Its shipped files match the Git dependency byte for
-byte. This archive URL avoids a Bun 1.4.2 Git peer-resolution defect that makes
-the integration graph fail frozen installs even immediately after relocking.
-When advancing that fork, update the commit in the root archive URL and
-regenerate the integration lock. For checkouts using the former external
-dependency cache, run `bun run install:local` once: it preserves old dependency
-links and standalone package copies as ignored backups and runs the same native
-`bun ci`. Subsequent installs use `bun ci`. Standalone manifests stay unchanged.
-The web devcontainer installs the same full workspace graph from root
-`bun.lock`, including mobile dependencies, in its Linux cache. It uses the same
-temporary manifest projection as the root lock writer and Bun's isolated linker.
-Web's dependency links are published through its existing named volume at `/app`
-and `/workspace/apps/web`; shared TypeScript sources stay live. Previous hoisted
-package directories are preserved as `*.before-workspace-*` backups in that
-volume. There is no separate container lock to refresh: update root `bun.lock`
-with `bun run lock` after dependency changes. Workspace lifecycle scripts are
-omitted from the dependency-only cache; web's postinstall, if present, runs from
-`/app` after publication. Mobile native patch/build scripts are not run.
-Container validation uses an isolated source snapshot; never install Linux
-mobile/package modules into the host bind mount. The root Python project uses
-editable library sources and a virtual web dependency; it is not a uv workspace.
-Child locks remain independent. Bun also runs JavaScript builds, tools and
-Vitest; no separate Node installation is required. Each `bunfig.toml` keeps
-`[run] bun = true` to apply that runtime to child executables.
+`DEKHTIARJonathan/maplibre-gl-js` fork, preventing registry renderer copies in
+the workspace. The override uses the immutable GitHub archive of reviewed
+`hotpatch` commit recorded in `package.json`, including its compiled
+distribution. Its shipped files match the Git dependency byte for byte. This
+archive URL avoids a Bun Git peer-resolution defect that makes the integration
+graph fail frozen installs even immediately after relocking. When advancing that
+fork, update the commit in the root archive URL and regenerate the integration
+lock. For checkouts using the former external dependency cache, run
+`bun run install:local` once: it preserves old dependency links and standalone
+package copies as ignored backups and runs the same native `bun ci`. Subsequent
+installs use `bun ci`. Standalone manifests stay unchanged. The web devcontainer
+installs the same full workspace graph from root `bun.lock`, including mobile
+dependencies, in its Linux cache. It uses the same temporary manifest projection
+as the root lock writer and Bun's isolated linker. Web's dependency links are
+published through its existing named volume at `/app` and `/workspace/apps/web`;
+shared TypeScript sources stay live. Previous hoisted package directories are
+preserved as `*.before-workspace-*` backups in that volume. There is no separate
+container lock to refresh: update root `bun.lock` with `bun run lock` after
+dependency changes. Workspace lifecycle scripts are omitted from the
+dependency-only cache; web's postinstall, if present, runs from `/app` after
+publication. Mobile native patch/build scripts are not run. Container validation
+uses an isolated source snapshot; never install Linux mobile/package modules
+into the host bind mount. The root Python project uses editable library sources
+and a virtual web dependency; it is not a uv workspace. The integration
+environment includes `stalagmight_lib[test]` as an editable source. OpenSpeleo
+reads `.stalx` through this native reader and its input adapter, then uses its
+existing shared GeoJSON exporter. Both libraries retain standalone manifests.
+OpenSpeleo's standalone lock refresh awaits publication of the reader release
+containing datum and station-merge metadata; local validation does not establish
+standalone release readiness. Child locks remain independent. Bun also runs
+JavaScript builds, tools and Vitest; no separate Node installation is required.
+Each `bunfig.toml` keeps `[run] bun = true` to apply that runtime to child
+executables.
 
 To resolve a child standalone Bun lock without touching the parent lock, run
 `bun run lock` from `apps/web`, `apps/mobile`, `packages/typescript/api`,

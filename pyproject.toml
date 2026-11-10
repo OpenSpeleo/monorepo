@@ -19,6 +19,9 @@ override-dependencies = [
     { package = { name = "django-js-reverse" }, dependencies = [
         "django>=5.2,<6.2",
     ] },
+    { package = { name = "deepdiff", version = "9.1.0" }, dependencies = [
+        "cachebox>=6.2.10,<7",
+    ] },
 ]
 
 [tool.uv.sources]
@@ -28,6 +31,7 @@ compass_lib = { path = "./packages/python/compass_lib/", editable = true }
 mnemo_lib = { path = "./packages/python/mnemo_lib/", editable = true }
 openspeleo_core = { path = "./packages/python/openspeleo_core/", editable = true }
 openspeleo_lib = { path = "./packages/python/openspeleo_lib/", editable = true }
+stalagmight_lib = { path = "./packages/python/stalagmight_lib/", editable = true }
 
 [project]
 name = "SpeleoLibs_Monorepo"
@@ -47,6 +51,7 @@ dependencies = [
     "mnemo_lib[test]",
     "openspeleo_core[legacy,test,benchmark]",
     "openspeleo_lib[test]",
+    "stalagmight_lib[test]",
 ]
 requires-python = ">=3.14,<3.15"
 
