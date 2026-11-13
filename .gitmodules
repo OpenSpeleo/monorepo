@@ -22,6 +22,11 @@
 	url = ../pytool_ariane_lib.git
 	branch = master
 
+[submodule "packages/python/cave-closure"]
+	path = packages/python/cave-closure
+	url = git@github.com:OpenSpeleo/cave-closure.git
+	branch = master
+
 [submodule "packages/python/compass_lib"]
 	path = packages/python/compass_lib
 	url = ../pytool_compass_lib.git

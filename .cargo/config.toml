@@ -1,3 +1,6 @@
-# Use the checked-out SDK while retaining each consumer's registry lockfile.
-# Path overrides require the SDK's dependency graph to match its published crate.
-paths = ["packages/rust/speleodb-api"]
+# Use checked-out Rust libraries while retaining consumer registry lockfiles.
+# Path overrides require each dependency graph to match its published crate.
+paths = [
+    "packages/rust/speleodb-api",
+    "packages/rust/cave-closure",
+]

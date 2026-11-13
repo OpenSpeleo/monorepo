@@ -27,6 +27,7 @@ override-dependencies = [
 [tool.uv.sources]
 speleodb_website = { path = "./apps/web/", package = false }
 ariane_lib = { path = "./packages/python/ariane_lib/", editable = true }
+cave-closure = { path = "./packages/rust/cave-closure/", editable = true }
 compass_lib = { path = "./packages/python/compass_lib/", editable = true }
 mnemo_lib = { path = "./packages/python/mnemo_lib/", editable = true }
 openspeleo_core = { path = "./packages/python/openspeleo_core/", editable = true }
@@ -47,6 +48,7 @@ dependencies = [
     # Projects
     "speleodb_website[local]",
     "ariane_lib[test]",
+    "cave-closure==0.0.1",
     "compass_lib[test]",
     "mnemo_lib[test]",
     "openspeleo_core[legacy,test,benchmark]",

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 readonly CORE_PROJECT="/workspace/packages/python/openspeleo_core"
-readonly CORE_SOURCE="${CORE_PROJECT}/src_python"
+readonly CLOSURE_PROJECT="/workspace/packages/rust/cave-closure"
 readonly CACHE_ROOT="/monorepo-python-build-cache"
 readonly CACHE_USER="dev-user"
 readonly CACHE_OWNERSHIP_MARKER="${CACHE_ROOT}/.dev-user-venv-v1"
@@ -18,6 +18,11 @@ for git_config_variable in ${!GIT_CONFIG_@}; do
     esac
 done
 readonly SUDO_PRESERVE_ENV
+
+if [[ ! -d "${CLOSURE_PROJECT}" ]]; then
+    printf 'cave_closure source is missing: %s\n' "${CLOSURE_PROJECT}" >&2
+    exit 1
+fi
 
 if [[ ! -d "${CORE_PROJECT}" ]]; then
     printf 'openspeleo_core source is missing: %s\n' "${CORE_PROJECT}" >&2
@@ -51,7 +56,7 @@ if [[ ! -e "${CACHE_OWNERSHIP_MARKER}" ]]; then
 fi
 
 if [[ "$(id -un)" != "${CACHE_USER}" ]]; then
-    printf 'openspeleo_core sync must run as %s\n' "${CACHE_USER}" >&2
+    printf 'native Python sync must run as %s\n' "${CACHE_USER}" >&2
     exit 1
 fi
 
@@ -65,11 +70,17 @@ command -v rustc >/dev/null
 command -v uv >/dev/null
 test -x "${VENV}/bin/python"
 
-# uv performs a PEP 660 editable install. Maturin's editable-profile is `dev`,
-# and tool.uv.cache-keys invalidates the cached native build whenever Cargo or
-# any file below src_rust changes.
+# Both native projects use PEP 660 editable installs with Maturin's dev profile.
+# Their own uv cache keys track Cargo inputs and Rust/Python sources.
 uv sync \
     --project "${CORE_PROJECT}" \
+    --python "${VENV}/bin/python" \
+    --frozen \
+    --no-dev \
+    --inexact
+
+uv sync \
+    --project "${CLOSURE_PROJECT}" \
     --python "${VENV}/bin/python" \
     --frozen \
     --no-dev \
@@ -95,6 +106,18 @@ if origins["openspeleo_core._rust_lib"].suffix != ".so":
         "openspeleo_core._rust_lib is not the Linux native extension: "
         f"{origins['openspeleo_core._rust_lib']}"
     )
+
+closure_source = Path("/workspace/packages/rust/cave-closure/src_python").resolve()
+for name in ("cave_closure", "cave_closure._native"):
+    spec = find_spec(name)
+    if spec is None or spec.origin is None:
+        raise RuntimeError(f"{name} has no importable origin")
+    origin = Path(spec.origin).resolve()
+    if not origin.is_relative_to(closure_source):
+        raise RuntimeError(f"{name} resolved to {origin}, expected {closure_source}")
+    if name.endswith("._native") and origin.suffix != ".so":
+        raise RuntimeError(f"{name} is not the Linux native extension: {origin}")
+    print(f"{name}: {origin}")
 
 print(f"openspeleo_core Python source: {origins['openspeleo_core']}")
 print(f"openspeleo_core Rust extension: {origins['openspeleo_core._rust_lib']}")

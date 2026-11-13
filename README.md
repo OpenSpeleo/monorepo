@@ -26,6 +26,7 @@ tracking branches; parent gitlinks pin exact commits.
 | `packages/python/openspeleo_core` | [openspeleo_core](https://github.com/OpenSpeleo/openspeleo_core)             | Rust/PyO3 native extension exposed as a Python package, including XML conversion helpers. |
 | `packages/python/openspeleo_lib`  | [pytool_openspeleo_lib](https://github.com/OpenSpeleo/pytool_openspeleo_lib) | Shared Python library for reading, writing, validating, and converting cave-survey data.  |
 | `packages/python/stalagmight_lib` | Native StalagMight reader                                                    | Immutable SQLite survey models, including geographic metadata for OpenSpeleo.             |
+| `packages/rust/cave-closure`      | [cave-closure](https://github.com/OpenSpeleo/cave-closure)                   | Rust cave-survey adjustment library with Python bindings.                                |
 | `packages/rust/compass_data`      | [compass_data](https://github.com/zheylmun/compass_data)                     | Rust library for Compass project (`.mak`) and survey (`.dat`) files.                      |
 | `packages/rust/speleodb-api`      | [speleodb-api-rs](https://github.com/OpenSpeleo/speleodb-api-rs)             | Generated async Rust SDK for the SpeleoDB API; Cargo-native generation and verification.  |
 | `packages/typescript/api`         | [SpeleoDB-TS-API](https://github.com/OpenSpeleo/SpeleoDB-TS-API)             | Generated TypeScript operations and wire types from its owned OpenAPI snapshot.           |
@@ -109,15 +110,22 @@ publication. Mobile native patch/build scripts are not run. Container validation
 uses an isolated source snapshot; never install Linux mobile/package modules
 into the host bind mount. The root Python project uses editable library sources
 and a virtual web dependency; it is not a uv workspace. The integration
-environment includes `stalagmight_lib[test]` as an editable source. OpenSpeleo
-reads `.stalx` through this native reader and its input adapter, then uses its
-existing shared GeoJSON exporter. Both libraries retain standalone manifests.
-OpenSpeleo's standalone lock refresh awaits publication of the reader release
-containing datum and station-merge metadata; local validation does not establish
-standalone release readiness. Child locks remain independent. Bun also runs
-JavaScript builds, tools and Vitest; no separate Node installation is required.
-Each `bunfig.toml` keeps `[run] bun = true` to apply that runtime to child
-executables.
+environment includes `stalagmight_lib[test]` and the Rust/Python adjustment
+library at `packages/rust/cave-closure` as editable sources. Running
+`uv sync --all-extras --frozen` from the root builds the local `cave_closure`
+extension for the Python adapters; rust-analyzer loads its independent Cargo
+manifest. Cargo's root `paths` override also uses the local Rust adjustment
+source while preserving each consumer's registry lock. The same editable build
+is installed during devcontainer setup and service startup. The container also
+overlays the local `stalagmight_lib` source, so native preparation uses the same
+reader as the host integration environment. OpenSpeleo reads `.stalx` through
+this native reader and its input adapter, then uses its existing shared GeoJSON
+exporter. Both libraries retain standalone manifests. OpenSpeleo's standalone
+lock refresh awaits publication of the reader release containing datum and
+station-merge metadata; local validation does not establish standalone release
+readiness. Child locks remain independent. Bun also runs JavaScript builds,
+tools and Vitest; no separate Node installation is required. Each `bunfig.toml`
+keeps `[run] bun = true` to apply that runtime to child executables.
 
 To resolve a child standalone Bun lock without touching the parent lock, run
 `bun run lock` from `apps/web`, `apps/mobile`, `packages/typescript/api`,
@@ -202,10 +210,10 @@ It combines `apps/web/local.yml` with `.devcontainer/compose.override.yml`.
 Initialize submodules on the host before opening the container.
 
 The workspace mounts at `/workspace`, and the web application mounts at `/app`.
-The container uses `/opt/speleodb-venv`, live shared Python sources, and an
-editable `openspeleo_core` extension. Container dependencies and build caches
-use separate named volumes. The `.devcontainer` scripts implement runtime setup
-and ownership handling.
+The container uses `/opt/speleodb-venv`, live shared Python sources, and
+editable `openspeleo_core` and `cave_closure` extensions. Container dependencies
+and build caches use separate named volumes. The `.devcontainer` scripts
+implement runtime setup and ownership handling.
 
 The stack includes Django, PostgreSQL, Redis, GitLab, RustFS, a Celery worker,
 and Celery Beat. The setup service provisions local services and runs migrations

@@ -29,7 +29,7 @@ x-monorepo-python-environment: &monorepo_python_environment
   CARGO_HOME: /monorepo-python-build-cache/cargo
   CARGO_TARGET_DIR: /monorepo-python-build-cache/openspeleo-core-target
   # Each submodule is a separate repository with its own ownership check.
-  GIT_CONFIG_COUNT: "18"
+  GIT_CONFIG_COUNT: "20"
   GIT_CONFIG_KEY_0: safe.directory
   GIT_CONFIG_VALUE_0: /workspace
   GIT_CONFIG_KEY_1: safe.directory
@@ -67,12 +67,16 @@ x-monorepo-python-environment: &monorepo_python_environment
   GIT_CONFIG_VALUE_16: /workspace/packages/typescript/api
   GIT_CONFIG_KEY_17: safe.directory
   GIT_CONFIG_VALUE_17: /workspace/packages/rust/speleodb-api
+  GIT_CONFIG_KEY_18: safe.directory
+  GIT_CONFIG_VALUE_18: /workspace/packages/rust/cave-closure
+  GIT_CONFIG_KEY_19: safe.directory
+  GIT_CONFIG_VALUE_19: /workspace/packages/python/stalagmight_lib
   # Shells start in /workspace; the shared entrypoint imports compose from /app.
   PYTHONPATH: "/workspace/packages/python/openspeleo_core/src_python:\
     /workspace/packages/python/mnemo_lib:\
     /workspace/packages/python/compass_lib:\
-    /workspace/packages/python/openspeleo_lib:/app"
-  RUSTUP_TOOLCHAIN: stable
+    /workspace/packages/python/openspeleo_lib:\
+    /workspace/packages/python/stalagmight_lib:/app"
   UV_CACHE_DIR: /monorepo-python-build-cache/uv
   SPELEODB_LOCAL_PACKAGES: "1"
   SPELEODB_WEB_INSTALL_ROOT: /monorepo-python-build-cache/web-packages
