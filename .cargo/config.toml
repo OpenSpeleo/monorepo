@@ -1,6 +1,8 @@
 # Use checked-out Rust libraries while retaining consumer registry lockfiles.
 # Path overrides require each dependency graph to match its published crate.
 paths = [
+    "packages/python/cave-closure",
+    "packages/python/openspeleo_core",
+    "packages/rust/compass_data",
     "packages/rust/speleodb-api",
-    "packages/rust/cave-closure",
 ]

@@ -28,6 +28,9 @@ networks:
 x-monorepo-python-environment: &monorepo_python_environment
   CARGO_HOME: /monorepo-python-build-cache/cargo
   CARGO_TARGET_DIR: /monorepo-python-build-cache/openspeleo-core-target
+  # Use the image's installed toolchain without syncing project components
+  # into the root-owned RUSTUP_HOME during editable package installs.
+  RUSTUP_TOOLCHAIN: 1.99.0
   # Each submodule is a separate repository with its own ownership check.
   GIT_CONFIG_COUNT: "20"
   GIT_CONFIG_KEY_0: safe.directory
@@ -84,6 +87,7 @@ x-monorepo-python-environment: &monorepo_python_environment
 
 x-monorepo-web-environment: &monorepo_web_environment
   <<: *monorepo_python_environment
+  DJANGO_EMAIL_HOST: mailpit
   AWS_S3_ENDPOINT_URL: http://rustfs:9000
   AWS_S3_BROWSER_ENDPOINT_URL: http://localhost:9000
   AWS_S3_TEST_ENDPOINT_URL: http://rustfs:9000
@@ -98,6 +102,7 @@ x-monorepo-web-environment: &monorepo_web_environment
 
 x-monorepo-setup-environment: &monorepo_setup_environment
   <<: *monorepo_python_environment
+  DJANGO_EMAIL_HOST: mailpit
   AWS_S3_ENDPOINT_URL: http://rustfs:9000
   AWS_S3_BROWSER_ENDPOINT_URL: http://localhost:9000
   GITLAB_SETUP_URL: http://gitlab:9080
@@ -106,6 +111,10 @@ x-monorepo-setup-environment: &monorepo_setup_environment
   CELERY_BROKER_URL: redis://redis:6379/1
 
 services:
+  mailpit:
+    container_name: >-
+      ${COMPOSE_INSTANCE_PREFIX:-${COMPOSE_PROJECT_NAME}}-mailpit
+
   django:
     image: "${COMPOSE_PROJECT_NAME}-django"
     user: dev-user
@@ -179,7 +188,7 @@ services:
       - >-
         /workspace/.devcontainer/prepare-web-node-modules.sh &&
         /workspace/.devcontainer/sync-openspeleo-core.sh &&
-        exec /start-celeryworker
+        exec python -m compose.celery.autoreload worker
 
   celery-beat:
     image: "${COMPOSE_PROJECT_NAME}-django"
@@ -202,7 +211,7 @@ services:
       - >-
         /workspace/.devcontainer/prepare-web-node-modules.sh &&
         /workspace/.devcontainer/sync-openspeleo-core.sh &&
-        exec /start-celerybeat
+        exec python -m compose.celery.autoreload beat
 
   celery-test-redis:
     container_name: >-

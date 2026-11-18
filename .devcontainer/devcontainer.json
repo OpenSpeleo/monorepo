@@ -6,6 +6,7 @@
   ],
   "service": "django",
   "runServices": [
+    "mailpit",
     "postgres",
     "redis",
     "gitlab",

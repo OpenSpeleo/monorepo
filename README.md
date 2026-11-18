@@ -26,7 +26,7 @@ tracking branches; parent gitlinks pin exact commits.
 | `packages/python/openspeleo_core` | [openspeleo_core](https://github.com/OpenSpeleo/openspeleo_core)             | Rust/PyO3 native extension exposed as a Python package, including XML conversion helpers. |
 | `packages/python/openspeleo_lib`  | [pytool_openspeleo_lib](https://github.com/OpenSpeleo/pytool_openspeleo_lib) | Shared Python library for reading, writing, validating, and converting cave-survey data.  |
 | `packages/python/stalagmight_lib` | Native StalagMight reader                                                    | Immutable SQLite survey models, including geographic metadata for OpenSpeleo.             |
-| `packages/rust/cave-closure`      | [cave-closure](https://github.com/OpenSpeleo/cave-closure)                   | Rust cave-survey adjustment library with Python bindings.                                |
+| `packages/python/cave-closure`    | [cave-closure](https://github.com/OpenSpeleo/cave-closure)                   | Rust cave-survey correction library with Python bindings.                                 |
 | `packages/rust/compass_data`      | [compass_data](https://github.com/zheylmun/compass_data)                     | Rust library for Compass project (`.mak`) and survey (`.dat`) files.                      |
 | `packages/rust/speleodb-api`      | [speleodb-api-rs](https://github.com/OpenSpeleo/speleodb-api-rs)             | Generated async Rust SDK for the SpeleoDB API; Cargo-native generation and verification.  |
 | `packages/typescript/api`         | [SpeleoDB-TS-API](https://github.com/OpenSpeleo/SpeleoDB-TS-API)             | Generated TypeScript operations and wire types from its owned OpenAPI snapshot.           |
@@ -110,11 +110,11 @@ publication. Mobile native patch/build scripts are not run. Container validation
 uses an isolated source snapshot; never install Linux mobile/package modules
 into the host bind mount. The root Python project uses editable library sources
 and a virtual web dependency; it is not a uv workspace. The integration
-environment includes `stalagmight_lib[test]` and the Rust/Python adjustment
-library at `packages/rust/cave-closure` as editable sources. Running
+environment includes `stalagmight_lib[test]` and the Rust/Python correction
+library at `packages/python/cave-closure` as editable sources. Running
 `uv sync --all-extras --frozen` from the root builds the local `cave_closure`
 extension for the Python adapters; rust-analyzer loads its independent Cargo
-manifest. Cargo's root `paths` override also uses the local Rust adjustment
+manifest. Cargo's root `paths` override also uses the local Rust correction
 source while preserving each consumer's registry lock. The same editable build
 is installed during devcontainer setup and service startup. The container also
 overlays the local `stalagmight_lib` source, so native preparation uses the same
@@ -215,11 +215,21 @@ editable `openspeleo_core` and `cave_closure` extensions. Container dependencies
 and build caches use separate named volumes. The `.devcontainer` scripts
 implement runtime setup and ownership handling.
 
-The stack includes Django, PostgreSQL, Redis, GitLab, RustFS, a Celery worker,
-and Celery Beat. The setup service provisions local services and runs migrations
-before dependent services start. Django is available at `http://localhost:8000`.
-Task execution history is available to authorized staff in Django admin;
-application jobs retain their own progress and controlled retry actions. See
+Rust, Clippy, and rustfmt use the exact release in `rust-toolchain.toml`. The
+native Python packages carry the same pin for standalone CI and releases. Keep
+these files, the development Dockerfiles, and `RUSTUP_TOOLCHAIN` in the Compose
+override aligned when upgrading, then rebuild the devcontainer. Native sync
+checks the pins and active compiler before rebuilding the editable extensions.
+Do not use a floating `stable` override.
+
+The stack includes Django, PostgreSQL, Redis, GitLab, RustFS, Mailpit, a Celery
+worker, and Celery Beat. The setup service provisions local services and runs
+migrations before dependent services start. Django is available at
+`http://localhost:8000`. Development email is captured in the disposable
+[Mailpit inbox](http://localhost:8025). See
+[email delivery](apps/web/docs/email-delivery.md) for SMTP configuration. Task
+execution history is available to authorized staff in Django admin; application
+jobs retain their own progress and controlled retry actions. See
 [background job operations](apps/web/docs/background-jobs-operations.md) for
 result retention, scheduler health, and retired local monitoring data cleanup.
 

@@ -23,7 +23,7 @@ import stalagmight_lib
 
 workspace = Path("/workspace").resolve()
 expected_sources = {
-    "cave_closure": workspace / "packages/rust/cave-closure",
+    "cave_closure": workspace / "packages/python/cave-closure",
     "compass_lib": workspace / "packages/python/compass_lib",
     "mnemo_lib": workspace / "packages/python/mnemo_lib",
     "openspeleo_core": workspace / "packages/python/openspeleo_core",

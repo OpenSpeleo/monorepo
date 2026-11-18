@@ -61,10 +61,10 @@ and publication behavior. Run root orchestration commands from the root.
 
 ## Repository model
 
-This integration repository contains Git submodules. `.gitmodules` is
-the sole authoritative mapping of names, paths, original URLs, and tracking
-branches. Each parent gitlink pins an exact commit; branch configuration does
-not make normal checkout follow upstream automatically.
+This integration repository contains Git submodules. `.gitmodules` is the sole
+authoritative mapping of names, paths, original URLs, and tracking branches.
+Each parent gitlink pins an exact commit; branch configuration does not make
+normal checkout follow upstream automatically.
 
 | Name                              | Path                              | Tracking branch |
 | --------------------------------- | --------------------------------- | --------------- |
@@ -77,7 +77,7 @@ not make normal checkout follow upstream automatically.
 | `packages/python/mnemo_lib`       | `packages/python/mnemo_lib`       | `master`        |
 | `packages/python/openspeleo_core` | `packages/python/openspeleo_core` | `master`        |
 | `packages/python/openspeleo_lib`  | `packages/python/openspeleo_lib`  | `master`        |
-| `packages/rust/cave-closure`      | `packages/rust/cave-closure`      | `master`        |
+| `packages/python/cave-closure`    | `packages/python/cave-closure`    | `master`        |
 | `packages/rust/compass_data`      | `packages/rust/compass_data`      | `main`          |
 | `packages/rust/speleodb-api`      | `packages/rust/speleodb-api`      | `master`        |
 | `packages/typescript/api`         | `packages/typescript/api`         | `master`        |
@@ -373,7 +373,7 @@ the upstream web metadata-style dependency overrides. Preserve
 dependencies accommodate the web manifest's prek pin. Editable path sources map:
 
 - `ariane_lib`
-- `cave_closure` (from `packages/rust/cave-closure`)
+- `cave_closure` (from `packages/python/cave-closure`)
 - `compass_lib`
 - `mnemo_lib`
 - `openspeleo_core`
@@ -446,28 +446,31 @@ snapshot. Root integration compares both SDK snapshots with web.
 Do not create a root Cargo workspace.
 
 Root `.cargo/config.toml` uses Cargo's native `paths` overrides for
-`packages/rust/speleodb-api` and
-`packages/rust/cave-closure`. The latter keeps local Rust
-adjustment edits live while consumer locks retain the published crate identity.
-Compass Sidecar's standalone dependency remains `speleodb-api`, with its
-registry source and checksum preserved in its own `Cargo.lock`. Do not replace
-that dependency with a sibling path or add a root `[patch]` that changes child
-lockfile identities. Cargo discovers this override from the current directory's
-ancestors, so run monorepo Cargo commands from the root or a child directory.
-Verify standalone resolution outside the checkout. Path overrides require the
-local SDK's dependency graph to match the published crate; coordinate dependency
-changes with the SDK release and consumer lock update. Keep source-only SDK
-edits live without changing child locks.
+`packages/rust/speleodb-api` and `packages/python/cave-closure`. The latter
+keeps local Rust correction edits live while consumer locks retain the published
+crate identity. Compass Sidecar's standalone dependency remains `speleodb-api`,
+with its registry source and checksum preserved in its own `Cargo.lock`. Do not
+replace that dependency with a sibling path or add a root `[patch]` that changes
+child lockfile identities. Cargo discovers this override from the current
+directory's ancestors, so run monorepo Cargo commands from the root or a child
+directory. Verify standalone resolution outside the checkout. Path overrides
+require the local SDK's dependency graph to match the published crate;
+coordinate dependency changes with the SDK release and consumer lock update.
+Keep source-only SDK edits live without changing child locks.
 
 rust-analyzer links these manifests independently:
 
 - `apps/compass_sidecar/Cargo.toml`
 - `packages/python/openspeleo_core/Cargo.toml`
 - `packages/rust/speleodb-api/Cargo.toml`
-- `packages/rust/cave-closure/Cargo.toml`
+- `packages/python/cave-closure/Cargo.toml`
 
-The committed toolchain uses stable Rust with rustfmt and clippy. The Compass
-frontend uses React/TypeScript and does not require a Rust WASM target.
+The committed `rust-toolchain.toml` pins an exact Rust release with rustfmt and
+clippy. Keep the native Python packages' pins, development Dockerfiles, and the
+devcontainer's `RUSTUP_TOOLCHAIN` environment aligned. Native sync verifies the
+declared and active toolchains before building editable extensions. Rebuild the
+devcontainer after changing the pin. The Compass frontend uses React/TypeScript
+and does not require a Rust WASM target.
 
 Minimum validation for Rust-affecting work:
 
@@ -549,6 +552,11 @@ overlays. Interactive shells start in `/workspace` and source `/entrypoint`,
 which must import `compose.wait_for_postgres` regardless of the current
 directory.
 
+Development email uses the disposable Mailpit service shared with standalone
+web. The root override sets `DJANGO_EMAIL_HOST=mailpit`; standalone host
+networking uses localhost. Both SMTP and the inbox publish only on host
+loopback.
+
 The root devcontainer layers on `apps/web/local.yml` through
 `.devcontainer/compose.override.yml`.
 
@@ -595,12 +603,13 @@ Required invariants:
 - `openspeleo_core` is installed PEP 660 editable with Maturin's explicit `dev`
   profile before application setup, and both its Python package and Linux
   extension must resolve below the bind-mounted submodule;
-- `cave_closure` at `packages/rust/cave-closure` is also installed PEP 660
+- `cave_closure` at `packages/python/cave-closure` is also installed PEP 660
   editable with the dev profile by the native sync script; validate its Python
-  and Linux extension origins below that checkout. Its uv cache keys track
-  the root Cargo manifest and lock, Rust sources, and Python sources;
-- its uv cache keys retain `pyproject.toml`, `Cargo.toml`, `Cargo.lock`, and
-  `src_rust/**/*`; custom uv keys replace the defaults;
+  and Linux extension origins below that checkout. Its uv cache keys track the
+  root Cargo manifest and lock, Rust sources, and Python sources;
+- its uv cache keys retain `pyproject.toml`, `Cargo.toml`, `Cargo.lock`,
+  `rust-toolchain.toml`, and `src_rust/**/*`; custom uv keys replace the
+  defaults;
 - Cargo, uv, and native target caches remain in the project-scoped
   `speleodb_local_monorepo_python_build_cache` volume;
 - the monorepo uv cache remains the directory `/monorepo-python-build-cache/uv`;

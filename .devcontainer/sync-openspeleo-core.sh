@@ -2,7 +2,7 @@
 set -euo pipefail
 
 readonly CORE_PROJECT="/workspace/packages/python/openspeleo_core"
-readonly CLOSURE_PROJECT="/workspace/packages/rust/cave-closure"
+readonly CLOSURE_PROJECT="/workspace/packages/python/cave-closure"
 readonly CACHE_ROOT="/monorepo-python-build-cache"
 readonly CACHE_USER="dev-user"
 readonly CACHE_OWNERSHIP_MARKER="${CACHE_ROOT}/.dev-user-venv-v1"
@@ -70,6 +70,30 @@ command -v rustc >/dev/null
 command -v uv >/dev/null
 test -x "${VENV}/bin/python"
 
+# Reject stale images or overrides before compiling either editable extension.
+"${VENV}/bin/python" - "${CORE_PROJECT}" "${CLOSURE_PROJECT}" <<'PY'
+import subprocess
+import sys
+import tomllib
+from pathlib import Path
+
+root = Path("/workspace")
+expected = tomllib.loads((root / "rust-toolchain.toml").read_text())["toolchain"]
+for project in (root, *(Path(path) for path in sys.argv[1:])):
+    declared = tomllib.loads((project / "rust-toolchain.toml").read_text())["toolchain"]
+    if declared != expected:
+        raise SystemExit(f"{project}/rust-toolchain.toml must match the root pin")
+    actual = subprocess.check_output(["rustc", "--version"], cwd=project, text=True)
+    if actual.split()[1] != expected["channel"]:
+        raise SystemExit(
+            f"{project}: expected Rust {expected['channel']}, got {actual.strip()}. "
+            "Rebuild the devcontainer and check RUSTUP_TOOLCHAIN."
+        )
+    print(f"{project}: {actual.strip()}", flush=True)
+subprocess.run(["cargo", "clippy", "--version"], cwd=root, check=True)
+subprocess.run(["cargo", "fmt", "--version"], cwd=root, check=True)
+PY
+
 # Both native projects use PEP 660 editable installs with Maturin's dev profile.
 # Their own uv cache keys track Cargo inputs and Rust/Python sources.
 uv sync \
@@ -107,7 +131,7 @@ if origins["openspeleo_core._rust_lib"].suffix != ".so":
         f"{origins['openspeleo_core._rust_lib']}"
     )
 
-closure_source = Path("/workspace/packages/rust/cave-closure/src_python").resolve()
+closure_source = Path("/workspace/packages/python/cave-closure/src_python").resolve()
 for name in ("cave_closure", "cave_closure._native"):
     spec = find_spec(name)
     if spec is None or spec.origin is None:
