@@ -1,0 +1,23 @@
+:root {
+    color-scheme: dark;
+    font-family: system-ui, sans-serif;
+    background: #10161d;
+    color: #f1f5f9;
+}
+body {
+    margin: 0;
+    min-height: 100svh;
+    display: grid;
+    place-items: center;
+}
+main { max-width: 32rem; margin: 1rem; }
+a {
+    display: inline-block;
+    padding: .75rem 1.25rem;
+    border-radius: .5rem;
+    background: #6445bb;
+    color: white;
+    font-weight: 600;
+    text-decoration: none;
+}
+a:hover { background: #7756cf; }

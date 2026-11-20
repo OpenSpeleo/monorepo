@@ -154,6 +154,10 @@ Run `bun run lock` afterward if either was used. The
 explicitly, including when invoked with `--ignore-scripts`.
 
 Copy application `.env.dist` templates only when their local files are missing.
+The devcontainer setup job generates a missing OIDC signing key in
+`apps/web/.env` and reuses it on subsequent starts. For manual configuration,
+see the
+[OIDC signing key guide](apps/web/docs/sign-in-with-speleodb.md#configure-the-provider-signing-key).
 Preserve existing environment files. Follow each child's README and `AGENTS.md`
 for application commands and toolchains.
 
@@ -208,6 +212,21 @@ installed, and there is no child test or build dispatcher.
 Open the monorepo root in the editor and use `.devcontainer/devcontainer.json`.
 It combines `apps/web/local.yml` with `.devcontainer/compose.override.yml`.
 Initialize submodules on the host before opening the container.
+
+In VS Code, install the recommended **Dev Containers** extension
+(`ms-vscode-remote.remote-containers`), then run **Dev Containers: Reopen in
+Container** from the Command Palette. Zed's native devcontainer support also
+uses this Compose configuration.
+
+The **Codium Devcontainer** extension (`DDorch.codium-devcontainer`) is
+[incompatible with this stack](https://github.com/DDorch/codium-devcontainer#limitations):
+it ignores `dockerComposeFile` and converts `postCreateCommand` into a
+Dockerfile `RUN` instruction. This fails with
+`setup.sh: No such file or directory` because the workspace is mounted only at
+runtime. If the build log mentions `Dockerfile.codium-temp`, use a
+Compose-capable editor integration as described above. Keep `postCreateCommand`
+as a runtime lifecycle command; setup requires the mounted sources, dependency
+volumes, and Compose services.
 
 The workspace mounts at `/workspace`, and the web application mounts at `/app`.
 The container uses `/opt/speleodb-venv`, live shared Python sources, and

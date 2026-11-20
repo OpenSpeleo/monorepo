@@ -1,5 +1,6 @@
 {
   "recommendations": [
+    "ms-vscode-remote.remote-containers",
     "Webnative.webnative",
     "redhat.java",
     "vscjava.vscode-java-pack",
@@ -12,5 +13,8 @@
     "ms-vscode.makefile-tools",
     "redhat.vscode-yaml",
     "tamasfe.even-better-toml"
+  ],
+  "unwantedRecommendations": [
+    "DDorch.codium-devcontainer"
   ]
 }

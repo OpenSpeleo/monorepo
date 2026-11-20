@@ -5,6 +5,7 @@
   "description": "SpeleoDB Git submodule workspace",
   "workspaces": [
     "apps/mobile",
+    "apps/speleodb-oidc-example",
     "apps/web",
     "packages/typescript/*/"
   ],
