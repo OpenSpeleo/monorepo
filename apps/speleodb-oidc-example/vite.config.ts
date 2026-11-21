@@ -1,4 +1,5 @@
 import type { ServerResponse } from 'node:http';
+import { createApiClient, v2ProjectsList } from '@speleodb/api';
 import * as oidc from 'openid-client';
 import { defineConfig, loadEnv } from 'vite';
 
@@ -9,6 +10,7 @@ const callback = new URL('/callback', origin);
 const requestedScope = 'openid email data:read';
 const { OIDC_ISSUER, OIDC_CLIENT_ID, OIDC_CLIENT_SECRET } = loadEnv('development', import.meta.dirname, 'OIDC_');
 const issuer = new URL(OIDC_ISSUER ?? 'http://localhost:8000');
+const api = createApiClient({ baseUrl: issuer.origin, timeoutMs: null });
 
 type Session =
     | { state: string; nonce: string; verifier: string }
@@ -74,19 +76,21 @@ export default defineConfig({
                             res.end(JSON.stringify(identity));
                             return;
                         }
-                        const projects = await fetch(new URL('/api/v2/projects/', issuer), {
+                        const projects = await v2ProjectsList(undefined, {
+                            client: api,
                             headers: { Authorization: `Bearer ${session.accessToken}`, Accept: 'application/json' },
                             redirect: 'error',
+                            responsePolicy: 'status-first-json',
                         });
                         if ([401, 403].includes(projects.status)) {
                             sessions.delete(id);
                             res.end(JSON.stringify({ signedIn: false, message: 'Project access ended. Sign in again.' }));
                             return;
                         }
-                        if (!projects.ok) throw new Error(`Projects API returned HTTP ${projects.status}`);
-                        const data: unknown = await projects.json();
-                        if (!Array.isArray(data)) throw new Error('Expected a list of projects.');
-                        res.end(JSON.stringify({ ...identity, projectCount: data.length }));
+                        if (projects.kind !== 'documented' || projects.status !== 200 || !Array.isArray(projects.data)) {
+                            throw new Error(`Expected a project list (HTTP ${projects.status}).`);
+                        }
+                        res.end(JSON.stringify({ ...identity, projectCount: projects.data.length }));
                         return;
                     }
 

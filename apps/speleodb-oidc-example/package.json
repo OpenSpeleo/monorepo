@@ -11,6 +11,7 @@
     "build": "tsc --noEmit && vite build --configLoader native"
   },
   "dependencies": {
+    "@speleodb/api": "0.10.0",
     "openid-client": "6.9.0",
     "react": "19.2.8",
     "react-dom": "19.2.8"

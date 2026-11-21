@@ -8,7 +8,8 @@ displays the number of projects returned by `GET /api/v2/projects/`.
 ## Run locally
 
 1. Start SpeleoDB at `http://localhost:8000` with its 4096-bit RSA signing key
-   configured on the Django web server. See the
+   configured and `DJANGO_OIDC_ALLOW_HTTP=true` on the Django web server. See
+   the
    [provider setup guide](../web/docs/sign-in-with-speleodb.md#configure-the-provider-signing-key).
 2. In Django admin, register a confidential client with the exact callback URL
    `http://127.0.0.1:8300/callback`. SpeleoDB configures the code grant and the
@@ -31,10 +32,11 @@ displays the number of projects returned by `GET /api/v2/projects/`.
 The browser holds an HTTP-only session cookie. The server exchanges the code
 using PKCE and verifies the signed ID token. It keeps the access token in memory
 until it expires or the example process exits. When you grant project access,
-reloading fetches the list again and detects revocation. A sign-in without
-project access stays local until its session expires. Opening
-`http://localhost:8300` redirects to `http://127.0.0.1:8300` so the sign-in and
-callback use the same cookie and SpeleoDB's cookies stay on its own hostname.
+the server calls `v2ProjectsList` from `@speleodb/api` on each reload and
+detects revocation. A sign-in without project access stays local until its
+session expires. Opening `http://localhost:8300` redirects to
+`http://127.0.0.1:8300` so the sign-in and callback use the same cookie and
+SpeleoDB's cookies stay on its own hostname.
 
 `bun run build` type-checks the server and browser code and builds the React
 assets. Use `bun run dev` for the interactive example, which needs Vite's local
